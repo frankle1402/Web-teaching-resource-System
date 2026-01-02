@@ -1,0 +1,107 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '@/store/modules/user'
+
+const routes = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/pages/Login.vue'),
+    meta: { requiresAuth: false, title: '登录' }
+  },
+  {
+    path: '/',
+    component: () => import('@/pages/Dashboard.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: '/resources'
+      },
+      {
+        path: 'resources',
+        name: 'ResourceList',
+        component: () => import('@/pages/ResourceList.vue'),
+        meta: { title: '我的资源' }
+      },
+      {
+        path: 'resources/create',
+        name: 'CreateResource',
+        component: () => import('@/pages/CreateResource.vue'),
+        meta: { title: '创建资源' }
+      },
+      {
+        path: 'resources/edit/:id',
+        name: 'EditResource',
+        component: () => import('@/pages/CreateResource.vue'),
+        meta: { title: '编辑资源' }
+      },
+      {
+        path: 'folders',
+        name: 'FolderManage',
+        component: () => import('@/pages/FolderManage.vue'),
+        meta: { title: '文件夹管理' }
+      },
+      {
+        path: 'templates',
+        name: 'TemplateCenter',
+        component: () => import('@/pages/TemplateCenter.vue'),
+        meta: { title: '模板中心' }
+      },
+      {
+        path: 'help',
+        name: 'Help',
+        component: () => import('@/pages/Help.vue'),
+        meta: { title: '帮助中心' }
+      }
+    ]
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('@/pages/NotFound.vue'),
+    meta: { title: '404' }
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+/**
+ * 路由守卫
+ */
+router.beforeEach(async (to, from, next) => {
+  // 设置页面标题
+  document.title = to.meta.title
+    ? `${to.meta.title} - 教学资源管理系统`
+    : '教学资源管理系统'
+
+  const userStore = useUserStore()
+
+  // 需要认证的路由
+  if (to.meta.requiresAuth) {
+    if (userStore.isLoggedIn) {
+      // 已登录，验证Token有效性
+      const isValid = await userStore.verifyToken()
+      if (isValid) {
+        next()
+      } else {
+        next('/login')
+      }
+    } else {
+      // 未登录，跳转到登录页
+      next('/login')
+    }
+  } else {
+    // 不需要认证的路由
+    if (to.path === '/login' && userStore.isLoggedIn) {
+      // 已登录用户访问登录页，跳转到首页
+      next('/')
+    } else {
+      next()
+    }
+  }
+})
+
+export default router

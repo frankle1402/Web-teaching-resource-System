@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(xargs:*)",
+      "Bash(git init:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill /F /PID 6116)",
+      "Bash(taskkill:*)",
+      "Bash(timeout:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm run dev)",
+      "Bash(del:*)",
+      "Bash(node src/database/init.js:*)",
+      "Bash(node:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInBob25lIjoiMTM4MDAxMzgwMDAiLCJpYXQiOjE3NjczMzkwODMsImV4cCI6MTc2OTkzMTA4M30.R5yi9dL591RK933BMzERWExK2NDwQxFjMt6MxAww0KQ\")",
+      "Bash(python3:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInBob25lIjoiMTM5MDAxMzkwMDAiLCJpYXQiOjE3NjczNDYyMzUsImV4cCI6MTc2OTkzODIzNX0.2v1YidviSQMOTl2cy1MH9Zb4ZJOE3zvcJqzuCPdtNyI\")",
+      "Bash(pnpm run build:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInBob25lIjoiMTM5MDAxMzkwMDAiLCJpYXQiOjE3NjczNjY1NzUsImV4cCI6MTc2OTk1ODU3NX0.ls8WVGcQ4Yuy-l7WNXPZB7E7UOQ6pyar_e0TOZyPxvo\")",
+      "Bash(sqlite3:*)",
+      "Bash(for:*)",
+      "Bash(do:*)",
+      "Bash(done:*)",
+      "Bash(pkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInBob25lIjoiMTM5MDAxMzkwMDAiLCJpYXQiOjE3NjczODE0NDIsImV4cCI6MTc2OTk3MzQ0Mn0.n8g0joMjFicc-rBYU0lArBaiO27yZcM0_p5qmR_-7VA\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
