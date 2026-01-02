@@ -109,7 +109,7 @@
             :disabled="!!form.contentHtml"
           >
             <el-icon v-if="!generating"><MagicStick /></el-icon>
-            {{ generating ? '正在生成中...' : form.contentHtml ? '已生成内容' : '开始AI生成' }}
+            {{ generating ? 'AI正在生成中（预计1-5分钟，请耐心等待）...' : form.contentHtml ? '已生成内容' : '开始AI生成' }}
           </el-button>
         </div>
 
@@ -257,6 +257,12 @@ const generateContent = async () => {
       courseName: form.courseName,
       subject: form.subject,
       courseLevel: form.courseLevel
+    })
+
+    // 提示用户开始生成
+    ElMessage.info({
+      message: 'AI正在生成教学内容，这可能需要1-5分钟，请耐心等待...',
+      duration: 5000
     })
 
     const response = await aiAPI.generateSimpleContent({

@@ -32,7 +32,10 @@
       "Bash(powershell:*)",
       "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInBob25lIjoiMTM5MDAxMzkwMDAiLCJpYXQiOjE3NjczODE0NDIsImV4cCI6MTc2OTk3MzQ0Mn0.n8g0joMjFicc-rBYU0lArBaiO27yZcM0_p5qmR_-7VA\")",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git remote add origin:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)"
     ]
   }
 }
