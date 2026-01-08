@@ -97,7 +97,7 @@ async function startServer() {
     console.log('✓ 数据库初始化成功\n');
 
     // 启动Express服务器
-    app.listen(PORT, () => {
+    app.listen(PORT, 'localhost', () => {
       console.log('╔════════════════════════════════════════╗');
       console.log('║   教学资源生成与管理系统 - 后端服务    ║');
       console.log('╠════════════════════════════════════════╣');

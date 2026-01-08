@@ -44,7 +44,20 @@
 - Node.js >= 18.0.0
 - npm 或 pnpm
 
-### 安装依赖
+### 方式一：一键启动（推荐）
+
+双击运行 `start.bat` 即可自动完成以下操作：
+- 检查运行环境
+- 自动安装依赖（首次运行时）
+- 启动后端服务（端口：8080）
+- 启动前端服务（端口：5173）
+- 在浏览器中打开系统
+
+停止服务：双击运行 `stop.bat`
+
+### 方式二：手动启动
+
+#### 安装依赖
 
 ```bash
 # 后端
@@ -56,21 +69,21 @@ cd frontend
 npm install
 ```
 
-### 配置环境变量
+#### 配置环境变量
 
 后端配置文件：`backend/.env`
 
 ```env
-PORT=3001
+PORT=8080
 NODE_ENV=development
 DB_PATH=./database/teaching_resources.sqlite
 JWT_SECRET=your_secret_key
 AI_API_KEY=your_302_ai_api_key
 FRONTEND_URL=http://localhost:5173
-BASE_URL=http://localhost:3001
+BASE_URL=http://localhost:8080
 ```
 
-### 启动服务
+#### 启动服务
 
 ```bash
 # 启动后端（终端1）
@@ -84,7 +97,10 @@ npm run dev
 
 访问地址：
 - 前端：http://localhost:5173
-- 后端：http://localhost:3001
+- 后端：http://localhost:8080
+
+#### 测试账号
+- 手机号：`13800138000`、`13900139000` 等
 
 ## 项目结构
 
