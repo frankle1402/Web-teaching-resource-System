@@ -38,12 +38,24 @@ async function authMiddleware(req, res, next) {
       });
     }
 
+    // 检查用户状态
+    if (user.status !== 1) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'USER_DISABLED',
+          message: '账号已被禁用，请联系管理员'
+        }
+      });
+    }
+
     // 将用户信息附加到请求对象
     req.user = {
       id: user.id,
       phone: user.phone,
       openid: user.openid,
-      nickname: user.nickname
+      nickname: user.nickname,
+      role: user.role || 'user'  // 默认为���通用户
     };
 
     next();

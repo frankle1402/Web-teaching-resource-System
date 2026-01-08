@@ -50,7 +50,7 @@ class AuthController {
         // 保存数据库
         saveDatabase();
 
-        console.log(`✓ 用户登录: ${phone}`);
+        console.log(`✓ 用户登录: ${phone}, 角色: ${user.role || 'user'}`);
       }
 
       // 生成JWT Token
@@ -65,18 +65,24 @@ class AuthController {
         }
       );
 
+      // 返回的用户数据（包含role）
+      const userData = {
+        id: user.id,
+        phone: user.phone,
+        openid: user.openid,
+        nickname: user.nickname,
+        avatar_url: user.avatar_url,
+        role: user.role || 'user'
+      };
+
+      console.log('登录返回的用户数据:', userData);
+
       // 返回登录成功信息
       res.json({
         success: true,
         data: {
           token,
-          user: {
-            id: user.id,
-            phone: user.phone,
-            openid: user.openid,
-            nickname: user.nickname,
-            avatar_url: user.avatar_url
-          }
+          user: userData
         },
         message: '登录成功'
       });
@@ -122,11 +128,17 @@ class AuthController {
     try {
       // Token验证由auth中间件完成
       // 如果执行到这里，说明Token有效
+
+      // 从数据库重新获取完整用户信息（包括role）
+      const { getDB } = require('../database/connection');
+      const db = await getDB();
+      const user = db.prepare('SELECT id, phone, nickname, avatar_url, role FROM users WHERE id = ?').get([req.user.id]);
+
       res.json({
         success: true,
         data: {
           valid: true,
-          user: req.user
+          user: user || req.user
         }
       });
     } catch (error) {

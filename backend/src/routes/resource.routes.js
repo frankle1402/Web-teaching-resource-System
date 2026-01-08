@@ -5,6 +5,7 @@ const authMiddleware = require('../middlewares/auth.middleware');
 
 // 需要认证的路由
 router.get('/', authMiddleware, resourceController.getResources);
+router.get('/used-fields', authMiddleware, resourceController.getUsedFields);
 router.get('/:id', authMiddleware, resourceController.getResourceById);
 router.post('/', authMiddleware, resourceController.createResource);
 router.put('/:id', authMiddleware, resourceController.updateResource);

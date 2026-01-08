@@ -35,7 +35,12 @@
       "Bash(git commit:*)",
       "Bash(git remote add origin:*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(netsh interface ipv4 show excludedportrange:*)",
+      "Bash(dir /b backendsrc)",
+      "Bash(dir /b frontendsrc)",
+      "Bash(dir:*)",
+      "Bash(ls:*)"
     ]
   }
 }

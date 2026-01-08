@@ -4,6 +4,138 @@ const path = require('path');
 require('dotenv').config();
 
 /**
+ * 运行数据��迁移
+ * 添加新字段和新表
+ */
+function runMigrations(db) {
+  try {
+    // 检查resource_likes表是否存在
+    const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='resource_likes'");
+    if (tables.length === 0) {
+      console.log('⚙️  运行迁移: 创建resource_likes表...');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS resource_likes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          resource_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          like_type TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(resource_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_resource_likes_resource_id ON resource_likes(resource_id);
+        CREATE INDEX IF NOT EXISTS idx_resource_likes_user_id ON resource_likes(user_id);
+      `);
+      console.log('✓ resource_likes表创建成功');
+    }
+
+    // 检查resources表是否有like_count字段
+    const columns = db.exec("PRAGMA table_info(resources)");
+    let hasLikeCount = false;
+    let hasDislikeCount = false;
+    let hasIsDisabled = false;
+    let hasDisabledAt = false;
+    let hasDisabledBy = false;
+    let hasDisabledReason = false;
+
+    if (columns.length > 0) {
+      const colNames = columns[0].values.map(col => col[1]);
+      hasLikeCount = colNames.includes('like_count');
+      hasDislikeCount = colNames.includes('dislike_count');
+      hasIsDisabled = colNames.includes('is_disabled');
+      hasDisabledAt = colNames.includes('disabled_at');
+      hasDisabledBy = colNames.includes('disabled_by');
+      hasDisabledReason = colNames.includes('disabled_reason');
+    }
+
+    if (!hasLikeCount) {
+      console.log('⚙️  运行迁移: 添加like_count字段...');
+      db.exec("ALTER TABLE resources ADD COLUMN like_count INTEGER DEFAULT 0");
+      console.log('✓ like_count字段添加成功');
+    }
+
+    if (!hasDislikeCount) {
+      console.log('⚙️  运行迁移: 添加dislike_count字段...');
+      db.exec("ALTER TABLE resources ADD COLUMN dislike_count INTEGER DEFAULT 0");
+      console.log('✓ dislike_count字段添加成功');
+    }
+
+    // 添加资源禁用相关字段
+    if (!hasIsDisabled) {
+      console.log('⚙️  运行迁移: 添加is_disabled字段...');
+      db.exec("ALTER TABLE resources ADD COLUMN is_disabled INTEGER DEFAULT 0");
+      console.log('✓ is_disabled字段添加成功');
+    }
+
+    if (!hasDisabledAt) {
+      console.log('⚙️  运行迁移: 添加disabled_at字段...');
+      db.exec("ALTER TABLE resources ADD COLUMN disabled_at DATETIME");
+      console.log('✓ disabled_at字段添加成功');
+    }
+
+    if (!hasDisabledBy) {
+      console.log('⚙️  运行迁移: 添加disabled_by字段...');
+      db.exec("ALTER TABLE resources ADD COLUMN disabled_by INTEGER");
+      console.log('✓ disabled_by字段添加成功');
+    }
+
+    if (!hasDisabledReason) {
+      console.log('⚙️  运行迁移: 添加disabled_reason字段...');
+      db.exec("ALTER TABLE resources ADD COLUMN disabled_reason TEXT");
+      console.log('✓ disabled_reason字段添加成功');
+    }
+
+    // 检查users表是否有role字段
+    const userColumns = db.exec("PRAGMA table_info(users)");
+    let hasRole = false;
+    if (userColumns.length > 0) {
+      const userColNames = userColumns[0].values.map(col => col[1]);
+      hasRole = userColNames.includes('role');
+    }
+
+    if (!hasRole) {
+      console.log('⚙️  运行迁移: 添加users.role字段...');
+      db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
+      console.log('✓ users.role字段添加成功');
+    }
+
+    // 检查admin_logs表是否存在
+    const adminLogsTables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='admin_logs'");
+    if (adminLogsTables.length === 0) {
+      console.log('⚙️  运行迁移: 创建admin_logs表...');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS admin_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          admin_id INTEGER NOT NULL,
+          action TEXT NOT NULL,
+          target_type TEXT NOT NULL,
+          target_id INTEGER NOT NULL,
+          details TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (admin_id) REFERENCES users(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_id ON admin_logs(admin_id);
+        CREATE INDEX IF NOT EXISTS idx_admin_logs_target ON admin_logs(target_type, target_id);
+        CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs(created_at);
+      `);
+      console.log('✓ admin_logs表创建成功');
+    }
+
+    // 如果有迁移执行，保存数据库
+    if (!hasLikeCount || !hasDislikeCount || tables.length === 0 ||
+        !hasIsDisabled || !hasDisabledAt || !hasDisabledBy || !hasDisabledReason ||
+        !hasRole || adminLogsTables.length === 0) {
+      saveDatabase();
+      console.log('✓ 数据库迁移完成并保存');
+    }
+  } catch (error) {
+    // 忽略字段已存在的错误
+    if (!error.message.includes('duplicate column name')) {
+      console.error('迁移警告:', error.message);
+    }
+  }
+}
+
+/**
  * 数据库连接管理 (使用SQL.js)
  * SQL.js是纯JavaScript实现的SQLite，无需编译
  */
@@ -43,6 +175,9 @@ async function initDatabase() {
     const buffer = fs.readFileSync(dbPath);
     db = new SQL.Database(buffer);
     console.log('✓ 数据库连接成功（从文件加载）');
+
+    // 数据库迁移：添加新字段和新表
+    runMigrations(db);
 
     // 注释掉自动schema检测和重建逻辑，避免意外清空数据库
     // 如果需要更新schema，请手动删除数据库文件或运行迁移脚本

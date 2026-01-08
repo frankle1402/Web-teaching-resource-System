@@ -10,10 +10,12 @@ const resourceRoutes = require('./routes/resource.routes');
 const folderRoutes = require('./routes/folder.routes');
 const templateRoutes = require('./routes/template.routes');
 const aiRoutes = require('./routes/ai.routes');
+const adminRoutes = require('./routes/admin.routes');
 const resourceController = require('./controllers/resource.controller');
 
 // 导入中间件
 const errorMiddleware = require('./middlewares/error.middleware');
+const authMiddleware = require('./middlewares/auth.middleware');
 
 /**
  * Express应用配置
@@ -57,12 +59,21 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 公开API路由（无需认证）
+app.get('/api/public/resources', resourceController.getPublicResources);
+app.get('/api/public/majors', resourceController.getPublicMajors);
+
+// 点赞/点踩API（需要认证）
+app.post('/api/resources/:id/like', authMiddleware, resourceController.toggleLike);
+app.get('/api/resources/like-status', authMiddleware, resourceController.getUserLikeStatus);
+
 // API路由
 app.use('/api/auth', authRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/admin', adminRoutes);
 
 // 公开资源访问（无需认证）
 app.get('/r/:uuid', resourceController.getPublicResource);

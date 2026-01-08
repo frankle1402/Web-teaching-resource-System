@@ -95,5 +95,36 @@ export const resourceAPI = {
       url: `/resources/${id}/unpublish`,
       method: 'post'
     })
+  },
+
+  /**
+   * 获取已使用的课程名称和专业列表
+   */
+  getUsedFields() {
+    return request({
+      url: '/resources/used-fields',
+      method: 'get'
+    })
+  },
+
+  /**
+   * 点赞/点踩资源
+   */
+  toggleLike(id, likeType) {
+    return request({
+      url: `/resources/${id}/like`,
+      method: 'post',
+      data: { likeType }
+    })
+  },
+
+  /**
+   * 获取点赞状态
+   */
+  getLikeStatus(resourceIds) {
+    return request({
+      url: `/resources/like-status?resourceIds=${resourceIds}`,
+      method: 'get'
+    })
   }
 }

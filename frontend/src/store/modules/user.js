@@ -19,6 +19,11 @@ export const useUserStore = defineStore('user', {
     isLoggedIn: (state) => !!state.token && !!state.userInfo.id,
 
     /**
+     * 是否为管理员
+     */
+    isAdmin: (state) => state.userInfo.role === 'admin',
+
+    /**
      * 获取用户手机号
      */
     userPhone: (state) => state.userInfo.phone || '',
@@ -26,7 +31,12 @@ export const useUserStore = defineStore('user', {
     /**
      * 获取用户ID
      */
-    userId: (state) => state.userInfo.id || null
+    userId: (state) => state.userInfo.id || null,
+
+    /**
+     * 获取用户角色
+     */
+    userRole: (state) => state.userInfo.role || 'user'
   },
 
   actions: {
@@ -85,7 +95,12 @@ export const useUserStore = defineStore('user', {
       }
 
       try {
-        await authAPI.verifyToken()
+        const result = await authAPI.verifyToken()
+        // 更新用户信息（确保获取最新的role）
+        if (result.user) {
+          this.userInfo = result.user
+          localStorage.setItem('user_info', JSON.stringify(result.user))
+        }
         return true
       } catch (error) {
         // Token无效，清除本地数据

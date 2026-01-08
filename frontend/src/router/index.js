@@ -9,6 +9,12 @@ const routes = [
     meta: { requiresAuth: false, title: '登录' }
   },
   {
+    path: '/explore',
+    name: 'Explore',
+    component: () => import('@/pages/Explore.vue'),
+    meta: { requiresAuth: false, title: '教学资源中心' }
+  },
+  {
     path: '/',
     component: () => import('@/pages/Dashboard.vue'),
     meta: { requiresAuth: true },
@@ -52,6 +58,31 @@ const routes = [
         name: 'Help',
         component: () => import('@/pages/Help.vue'),
         meta: { title: '帮助中心' }
+      },
+      // 管理员路由（需要管理员权限）
+      {
+        path: 'admin/stats',
+        name: 'AdminStats',
+        component: () => import('@/pages/admin/AdminStats.vue'),
+        meta: { title: '数据看板', requiresAdmin: true }
+      },
+      {
+        path: 'admin/users',
+        name: 'AdminUsers',
+        component: () => import('@/pages/admin/AdminUsers.vue'),
+        meta: { title: '用户管理', requiresAdmin: true }
+      },
+      {
+        path: 'admin/resources',
+        name: 'AdminResources',
+        component: () => import('@/pages/admin/AdminResources.vue'),
+        meta: { title: '全站资源', requiresAdmin: true }
+      },
+      {
+        path: 'admin/logs',
+        name: 'AdminLogs',
+        component: () => import('@/pages/admin/AdminLogs.vue'),
+        meta: { title: '操作日志', requiresAdmin: true }
       }
     ]
   },
@@ -85,7 +116,13 @@ router.beforeEach(async (to, from, next) => {
       // 已登录，验证Token有效性
       const isValid = await userStore.verifyToken()
       if (isValid) {
-        next()
+        // 检查是否需要管理员权限
+        if (to.meta.requiresAdmin && !userStore.isAdmin) {
+          // 非管理员访问管理员页面，跳转到首页
+          next('/')
+        } else {
+          next()
+        }
       } else {
         next('/login')
       }

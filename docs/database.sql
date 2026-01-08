@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone TEXT NOT NULL,                      -- 手机号
     nickname TEXT,                            -- 用户昵称（可选）
     avatar_url TEXT,                          -- 头像URL（可选）
+    role TEXT DEFAULT 'user',                 -- 用户角色：'admin'=管理员, 'user'=普通用户
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
     status INTEGER DEFAULT 1                  -- 账号状态：1=正常，0=禁用
@@ -175,6 +176,14 @@ CREATE TABLE IF NOT EXISTS resources (
     public_url TEXT,                          -- 公开访问URL
     published_at DATETIME,                    -- 发布时间
     view_count INTEGER DEFAULT 0,             -- 浏览次数
+    like_count INTEGER DEFAULT 0,             -- 点赞数
+    dislike_count INTEGER DEFAULT 0,          -- 点踩数
+
+    -- 管理员禁用相关
+    is_disabled INTEGER DEFAULT 0,            -- 是否被管理员禁用：0=正常, 1=已禁用
+    disabled_at DATETIME,                     -- 禁用时间
+    disabled_by INTEGER,                      -- 禁用操作的管理员ID
+    disabled_reason TEXT,                     -- 禁用原因
 
     -- 时间戳
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -182,7 +191,8 @@ CREATE TABLE IF NOT EXISTS resources (
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL,
-    FOREIGN KEY (template_id) REFERENCES templates(id)
+    FOREIGN KEY (template_id) REFERENCES templates(id),
+    FOREIGN KEY (disabled_by) REFERENCES users(id)
 );
 
 -- 创建索引
@@ -231,3 +241,40 @@ CREATE TABLE IF NOT EXISTS ai_generation_logs (
 -- 创建索引
 CREATE INDEX IF NOT EXISTS idx_ai_logs_user_id ON ai_generation_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_ai_logs_created_at ON ai_generation_logs(created_at);
+
+-- ====================================
+-- 7. 资源点赞/点踩表
+-- ====================================
+CREATE TABLE IF NOT EXISTS resource_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    resource_id INTEGER NOT NULL,             -- 资源ID
+    user_id INTEGER NOT NULL,                 -- 用户ID
+    like_type TEXT NOT NULL,                  -- 'like' 或 'dislike'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(resource_id, user_id),             -- 每个用户对每个资源只能点赞或点踩一次
+    FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_resource_likes_resource_id ON resource_likes(resource_id);
+CREATE INDEX IF NOT EXISTS idx_resource_likes_user_id ON resource_likes(user_id);
+
+-- ====================================
+-- 8. 管理员操作日志表
+-- ====================================
+CREATE TABLE IF NOT EXISTS admin_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id INTEGER NOT NULL,                -- 管理员ID
+    action TEXT NOT NULL,                     -- 操作类型：disable_user/enable_user/disable_resource/unpublish_resource等
+    target_type TEXT NOT NULL,                -- 目标类型：user/resource
+    target_id INTEGER NOT NULL,               -- 目标ID
+    details TEXT,                             -- 操作详情(JSON格式)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id) REFERENCES users(id)
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_id ON admin_logs(admin_id);
+CREATE INDEX IF NOT EXISTS idx_admin_logs_target ON admin_logs(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs(created_at);

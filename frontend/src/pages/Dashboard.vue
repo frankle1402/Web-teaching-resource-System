@@ -38,6 +38,40 @@
           <el-icon><QuestionFilled /></el-icon>
           <span>帮助中心</span>
         </el-menu-item>
+
+        <el-divider style="margin: 12px 20px; border-color: rgba(255,255,255,0.2)" />
+
+        <!-- 公开资源中心（不需要登录权限） -->
+        <el-menu-item index="/explore" @click="handleGoToExplore">
+          <el-icon><Collection /></el-icon>
+          <span>资源中心</span>
+        </el-menu-item>
+
+        <!-- 管理员菜单 -->
+        <template v-if="isAdmin">
+          <el-divider style="margin: 12px 0; border-color: rgba(255,255,255,0.2)" />
+          <div class="menu-group-title">管理员功能</div>
+
+          <el-menu-item index="/admin/stats">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>数据看板</span>
+          </el-menu-item>
+
+          <el-menu-item index="/admin/users">
+            <el-icon><UserFilled /></el-icon>
+            <span>用户管理</span>
+          </el-menu-item>
+
+          <el-menu-item index="/admin/resources">
+            <el-icon><Files /></el-icon>
+            <span>全站资源</span>
+          </el-menu-item>
+
+          <el-menu-item index="/admin/logs">
+            <el-icon><Tickets /></el-icon>
+            <span>操作日志</span>
+          </el-menu-item>
+        </template>
       </el-menu>
     </el-aside>
 
@@ -50,6 +84,11 @@
         </div>
 
         <div class="header-right">
+          <!-- 显示当前角色（用于调试和确认） -->
+          <span class="role-badge" :class="{ 'is-admin': isAdmin }">
+            {{ userRole === 'admin' ? '管理员' : '普通用户' }}
+          </span>
+
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-icon><User /></el-icon>
@@ -90,7 +129,12 @@ import {
   QuestionFilled,
   User,
   ArrowDown,
-  SwitchButton
+  SwitchButton,
+  DataAnalysis,
+  UserFilled,
+  Files,
+  Tickets,
+  Collection
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -100,6 +144,12 @@ const userStore = useUserStore()
 // 当前激活的菜单
 const activeMenu = computed(() => route.path)
 
+// 是否为管理员
+const isAdmin = computed(() => userStore.isAdmin)
+
+// 用户角色（用于显示）
+const userRole = computed(() => userStore.userRole)
+
 // 当前页面标题
 const currentPageTitle = computed(() => {
   return route.meta.title || '首页'
@@ -108,6 +158,13 @@ const currentPageTitle = computed(() => {
 // 用户手机号
 const userPhone = computed(() => {
   return userStore.userPhone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+})
+
+// 调试：输出用户信息
+console.log('Dashboard - 用户信息:', {
+  isAdmin: isAdmin.value,
+  userRole: userRole.value,
+  userInfo: userStore.userInfo
 })
 
 /**
@@ -127,6 +184,13 @@ const handleCommand = async (command) => {
       // 用户取消
     }
   }
+}
+
+/**
+ * 跳转到资源中心（新窗口打开）
+ */
+const handleGoToExplore = () => {
+  window.open('/explore', '_blank')
 }
 </script>
 
@@ -187,6 +251,14 @@ const handleCommand = async (command) => {
   border-left-color: #38bdf8;
 }
 
+.menu-group-title {
+  padding: 8px 20px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .main-container {
   background: #f1f5f9;
 }
@@ -221,6 +293,21 @@ const handleCommand = async (command) => {
 
 .user-info:hover {
   background: #f1f5f9;
+}
+
+.role-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #e2e8f0;
+  color: #64748b;
+  margin-right: 12px;
+}
+
+.role-badge.is-admin {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
 .dashboard-main {

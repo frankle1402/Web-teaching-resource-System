@@ -41,15 +41,32 @@
           <span>MVP阶段：输入任意手机号即可登录</span>
         </div>
       </el-form>
+
+      <!-- 资源中心入口 -->
+      <div class="explore-entry">
+        <div class="entry-divider">
+          <span>或</span>
+        </div>
+        <el-button
+          class="explore-button"
+          @click="goToExplore"
+        >
+          <el-icon><Collection /></el-icon>
+          浏览教学资源中心
+        </el-button>
+        <p class="entry-hint">无需登录，免费浏览优质教学资源</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/modules/user'
-import { Cellphone, InfoFilled } from '@element-plus/icons-vue'
+import { Cellphone, InfoFilled, Collection } from '@element-plus/icons-vue'
 
+const router = useRouter()
 const userStore = useUserStore()
 
 // 表单引用
@@ -97,6 +114,13 @@ const handleLogin = async () => {
   } finally {
     loading.value = false
   }
+}
+
+/**
+ * 跳转到资源中心
+ */
+const goToExplore = () => {
+  router.push('/explore')
 }
 </script>
 
@@ -170,5 +194,58 @@ const handleLogin = async () => {
 
 .login-tips .el-icon {
   font-size: 16px;
+}
+
+/* 资源中心入口 */
+.explore-entry {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.entry-divider {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.entry-divider::before,
+.entry-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.entry-divider span {
+  padding: 0 16px;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.explore-button {
+  width: 100%;
+  height: 48px;
+  font-size: 16px;
+  border: 2px solid #3b82f6;
+  color: #3b82f6;
+  background: white;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.explore-button:hover {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.entry-hint {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #94a3b8;
 }
 </style>

@@ -7,6 +7,7 @@ const { getDB, saveDatabase } = require('../database/connection');
 class ResourceController {
   /**
    * 获取资源列表（支持分页、筛选）
+   * 管理员可获取所有资源，普通用户只能获取自己的资源
    */
   async getResources(req, res) {
     try {
@@ -21,11 +22,12 @@ class ResourceController {
       } = req.query;
 
       const userId = req.user.id;
+      const isAdmin = req.user.role === 'admin';
       const db = await getDB();
 
-      // 构建查询条件
-      let whereConditions = ['user_id = ?'];
-      let params = [userId];
+      // 构建查询条件：管理员可查看所有资源，普通用户只能查看自己的
+      let whereConditions = isAdmin ? [] : ['user_id = ?'];
+      let params = isAdmin ? [] : [userId];
 
       if (folderId) {
         whereConditions.push('folder_id = ?');
@@ -52,7 +54,12 @@ class ResourceController {
         params.push(`%${keyword}%`, `%${keyword}%`);
       }
 
-      const whereClause = whereConditions.join(' AND ');
+      // 排除被禁用的资源（管理员可以看到）
+      if (!isAdmin) {
+        whereConditions.push('is_disabled = 0');
+      }
+
+      const whereClause = whereConditions.length > 0 ? whereConditions.join(' AND ') : '1=1';
 
       // 查询总数
       const countResult = db.prepare(`SELECT COUNT(*) as total FROM resources WHERE ${whereClause}`).get(params);
@@ -63,7 +70,7 @@ class ResourceController {
       const resources = db.prepare(`
         SELECT
           id, uuid, title, course_name, course_level, major, subject,
-          template_id, folder_id, status, public_url,
+          template_id, folder_id, status, public_url, is_disabled, disabled_reason,
           created_at, updated_at
         FROM resources
         WHERE ${whereClause}
@@ -97,16 +104,19 @@ class ResourceController {
 
   /**
    * 获取资源详情
+   * 管理员可以获取任何资源，普通用户只能获取自己的资源
    */
   async getResourceById(req, res) {
     try {
       const { id } = req.params;
       const userId = req.user.id;
+      const isAdmin = req.user.role === 'admin';
       const db = await getDB();
 
+      // 管理员可以查看任何资源，普通用户只能查看自己的
       const resource = db.prepare(`
-        SELECT * FROM resources WHERE id = ? AND user_id = ?
-      `).get([id, userId]);
+        SELECT * FROM resources WHERE id = ? ${!isAdmin ? 'AND user_id = ?' : ''}
+      `).get(isAdmin ? [id] : [id, userId]);
 
       if (!resource) {
         return res.status(404).json({
@@ -118,9 +128,26 @@ class ResourceController {
         });
       }
 
+      // 检查资源是否被禁用
+      if (resource.is_disabled && !isAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'RESOURCE_DISABLED',
+            message: '该资源已被管理员禁用'
+          }
+        });
+      }
+
+      // 映射字段：prompt_text -> additional_requirements
+      const responseData = {
+        ...resource,
+        additional_requirements: resource.prompt_text || ''
+      };
+
       res.json({
         success: true,
-        data: resource
+        data: responseData
       });
     } catch (error) {
       console.error('获取资源详情错误:', error);
@@ -140,16 +167,19 @@ class ResourceController {
   async createResource(req, res) {
     try {
       const {
-        title,
+        subject,
         courseName,
         courseLevel,
         major,
-        subject,
+        additionalRequirements,
         contentHtml,
         templateId,
         folderId,
         status
       } = req.body;
+
+      // 字段映射：前端的subject对应数据库的title（教学主题）
+      const title = subject;
 
       // 验证必填字段
       if (!title || !courseName || !courseLevel) {
@@ -181,12 +211,12 @@ class ResourceController {
       const result = db.prepare(`
         INSERT INTO resources (
           uuid, user_id, title, course_name, course_level,
-          major, subject, content_html, template_id, folder_id,
+          major, subject, prompt_text, content_html, template_id, folder_id,
           status, public_url, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
       `).run([
         uuid, userId, title, courseName, courseLevel,
-        major, subject, contentHtml || '',
+        major, title, additionalRequirements || '', contentHtml || '',
         templateId || null,  // 将 undefined 转换为 null
         folderId || null,    // 将 undefined 转换为 null
         resourceStatus,
@@ -231,27 +261,34 @@ class ResourceController {
 
   /**
    * 更新资源
+   * 管理员可以更新任何资源，普通用户只能更新自己的资源
    */
   async updateResource(req, res) {
     try {
       const { id } = req.params;
       const {
-        title,
+        subject,
         courseName,
         courseLevel,
         major,
-        subject,
+        additionalRequirements,
         contentHtml,
         templateId,
         folderId,
         status
       } = req.body;
 
+      // 字段映射：前端的subject对应数据库的title（教学主题）
+      const title = subject;
+
       const userId = req.user.id;
+      const isAdmin = req.user.role === 'admin';
       const db = await getDB();
 
-      // 检查资源是否存在且属于当前用户
-      const resource = db.prepare('SELECT * FROM resources WHERE id = ? AND user_id = ?').get([id, userId]);
+      // 检查资源是否存在（管理员可以编辑任何资源，普通用户只能编辑自己的）
+      const resource = db.prepare(`
+        SELECT * FROM resources WHERE id = ? ${!isAdmin ? 'AND user_id = ?' : ''}
+      `).get(isAdmin ? [id] : [id, userId]);
 
       if (!resource) {
         return res.status(404).json({
@@ -259,6 +296,17 @@ class ResourceController {
           error: {
             code: 'RESOURCE_NOT_FOUND',
             message: '资源不存在'
+          }
+        });
+      }
+
+      // 检查资源是否被禁用
+      if (resource.is_disabled && !isAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'RESOURCE_DISABLED',
+            message: '该资源已被管理员禁用，无法修改'
           }
         });
       }
@@ -284,7 +332,7 @@ class ResourceController {
         publicUrl = `${process.env.BASE_URL || 'http://localhost:3001'}/r/${resource.uuid}`;
       }
 
-      // 更新资源
+      // 更新资源（管理员更新时不限制user_id）
       db.prepare(`
         UPDATE resources
         SET title = ?,
@@ -292,21 +340,22 @@ class ResourceController {
             course_level = ?,
             major = ?,
             subject = ?,
+            prompt_text = ?,
             content_html = COALESCE(?, content_html),
             template_id = COALESCE(?, template_id),
             folder_id = COALESCE(?, folder_id),
             status = ?,
             public_url = ?,
             updated_at = datetime('now')
-        WHERE id = ? AND user_id = ?
+        WHERE id = ? ${!isAdmin ? 'AND user_id = ?' : ''}
       `).run([
-        title, courseName, courseLevel, major, subject,
+        title, courseName, courseLevel, major, title, additionalRequirements || '',
         contentHtml || null,
         templateId || null,
         folderId || null,
         newStatus,
         publicUrl,
-        id, userId
+        id, ...(isAdmin ? [] : [userId])
       ]);
 
       // 保存数据库
@@ -338,15 +387,19 @@ class ResourceController {
 
   /**
    * 删除资源
+   * 管理员可以删除任何资源，普通用户只能删除自己的资源
    */
   async deleteResource(req, res) {
     try {
       const { id } = req.params;
       const userId = req.user.id;
+      const isAdmin = req.user.role === 'admin';
       const db = await getDB();
 
-      // 检查资源是否存在且属于当前用户
-      const resource = db.prepare('SELECT * FROM resources WHERE id = ? AND user_id = ?').get([id, userId]);
+      // 检查资源是否存在（管理员可以删除任何资源，普通用户只能删除自己的）
+      const resource = db.prepare(`
+        SELECT * FROM resources WHERE id = ? ${!isAdmin ? 'AND user_id = ?' : ''}
+      `).get(isAdmin ? [id] : [id, userId]);
 
       if (!resource) {
         return res.status(404).json({
@@ -354,6 +407,17 @@ class ResourceController {
           error: {
             code: 'RESOURCE_NOT_FOUND',
             message: '资源不存在'
+          }
+        });
+      }
+
+      // 检查资源是否被禁用
+      if (resource.is_disabled && !isAdmin) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'RESOURCE_DISABLED',
+            message: '该资源已被管理员禁用，无法删除'
           }
         });
       }
@@ -498,6 +562,51 @@ class ResourceController {
   }
 
   /**
+   * 获取已使用的课程名称和专业列表（用于前端自动完成推荐）
+   * 查询整个系统所有用户使用过的课程名称和专业，去重后按使用频率排序
+   */
+  async getUsedFields(req, res) {
+    try {
+      const db = await getDB();
+
+      // 获取整个系统已使用的课程名称（去重、按使用频率排序）
+      const courseNames = db.prepare(`
+        SELECT course_name as name, COUNT(*) as count
+        FROM resources
+        WHERE course_name IS NOT NULL AND course_name != ''
+        GROUP BY course_name
+        ORDER BY count DESC, course_name ASC
+      `).all([]);
+
+      // 获取整个系统已使用的专业（去重、按使用频率排序）
+      const majors = db.prepare(`
+        SELECT major as name, COUNT(*) as count
+        FROM resources
+        WHERE major IS NOT NULL AND major != ''
+        GROUP BY major
+        ORDER BY count DESC, major ASC
+      `).all([]);
+
+      res.json({
+        success: true,
+        data: {
+          courseNames: courseNames.map(item => item.name),
+          majors: majors.map(item => item.name)
+        }
+      });
+    } catch (error) {
+      console.error('获取字段列表错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'GET_USED_FIELDS_ERROR',
+          message: '获取字段列表失败'
+        }
+      });
+    }
+  }
+
+  /**
    * 发布资源（生成公开访问URL）
    */
   async publishResource(req, res) {
@@ -635,6 +744,7 @@ class ResourceController {
 
   /**
    * 公开访问资源（无需认证）
+   * 检查资源是否被禁用
    */
   async getPublicResource(req, res) {
     try {
@@ -642,7 +752,7 @@ class ResourceController {
       const db = await getDB();
 
       const resource = db.prepare(`
-        SELECT title, course_name, course_level, major, subject, content_html
+        SELECT title, course_name, course_level, major, subject, content_html, is_disabled
         FROM resources
         WHERE uuid = ? AND status = 'published'
       `).get([uuid]);
@@ -657,6 +767,25 @@ class ResourceController {
         });
       }
 
+      // 检查资源是否被管理员禁用
+      if (resource.is_disabled) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: 'RESOURCE_DISABLED',
+            message: '该资源已被管理员禁用'
+          }
+        });
+      }
+
+      // 增加浏览量
+      db.prepare(`
+        UPDATE resources
+        SET view_count = view_count + 1
+        WHERE uuid = ?
+      `).run([uuid]);
+      saveDatabase();
+
       // 返回HTML内容
       res.send(resource.content_html);
     } catch (error) {
@@ -666,6 +795,246 @@ class ResourceController {
         error: {
           code: 'GET_PUBLIC_RESOURCE_ERROR',
           message: '访问资源失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * 获取公开资源列表（无需认证）
+   * 只显示已发布的资源，支持分页和筛选
+   */
+  async getPublicResources(req, res) {
+    try {
+      const {
+        page = 1,
+        pageSize = 12,
+        keyword,
+        courseLevel,
+        major,
+        sortBy = 'latest'
+      } = req.query;
+
+      const db = await getDB();
+
+      // 构建查询条件（只查询已发布资源）
+      let whereConditions = ['status = ?'];
+      let params = ['published'];
+
+      if (keyword) {
+        // 支持标题、课程名、专业、内容搜索
+        whereConditions.push('(title LIKE ? OR course_name LIKE ? OR major LIKE ? OR content_html LIKE ?)');
+        params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+      }
+
+      if (courseLevel) {
+        whereConditions.push('course_level = ?');
+        params.push(courseLevel);
+      }
+
+      if (major) {
+        whereConditions.push('major = ?');
+        params.push(major);
+      }
+
+      const whereClause = whereConditions.join(' AND ');
+
+      // 排序规则
+      let orderClause = 'updated_at DESC';
+      if (sortBy === 'popular') {
+        orderClause = 'view_count DESC, updated_at DESC';
+      } else if (sortBy === 'liked') {
+        orderClause = 'like_count DESC, updated_at DESC';
+      }
+
+      // 查询总��
+      const countResult = db.prepare(`SELECT COUNT(*) as total FROM resources WHERE ${whereClause}`).get(params);
+      const total = countResult.total;
+
+      // 查询资源列表
+      const offset = (page - 1) * pageSize;
+      const resources = db.prepare(`
+        SELECT
+          id, uuid, title, course_name, course_level, major, subject,
+          view_count, like_count, dislike_count, created_at, updated_at
+        FROM resources
+        WHERE ${whereClause}
+        ORDER BY ${orderClause}
+        LIMIT ? OFFSET ?
+      `).all([...params, parseInt(pageSize), offset]);
+
+      res.json({
+        success: true,
+        data: {
+          list: resources,
+          pagination: {
+            page: parseInt(page),
+            pageSize: parseInt(pageSize),
+            total,
+            totalPages: Math.ceil(total / pageSize)
+          }
+        }
+      });
+    } catch (error) {
+      console.error('获取公开资源列表错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'GET_PUBLIC_RESOURCES_ERROR',
+          message: '获取公开资源列表失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * 获取所有专业列表（用于公开页面的筛选）
+   */
+  async getPublicMajors(req, res) {
+    try {
+      const db = await getDB();
+
+      const majors = db.prepare(`
+        SELECT DISTINCT major
+        FROM resources
+        WHERE status = 'published' AND major IS NOT NULL AND major != ''
+        ORDER BY major ASC
+      `).all();
+
+      res.json({
+        success: true,
+        data: majors.map(m => m.major)
+      });
+    } catch (error) {
+      console.error('获取专业列表错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'GET_MAJORS_ERROR',
+          message: '获取专业列表失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * 点赞或点踩资源（需要认证）
+   */
+  async toggleLike(req, res) {
+    try {
+      const { id } = req.params;
+      const { likeType } = req.body; // 'like' 或 'dislike'
+      const userId = req.user.id;
+      const db = await getDB();
+
+      // 验证like_type
+      if (!['like', 'dislike'].includes(likeType)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_LIKE_TYPE',
+            message: '点赞类型无效'
+          }
+        });
+      }
+
+      // 检查资源是否存在且已发布
+      const resource = db.prepare('SELECT * FROM resources WHERE id = ? AND status = ?').get([id, 'published']);
+
+      if (!resource) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'RESOURCE_NOT_FOUND',
+            message: '资源不存在或未发布'
+          }
+        });
+      }
+
+      // 检查用户是否已经点赞或点踩过
+      const existingLike = db.prepare('SELECT * FROM resource_likes WHERE resource_id = ? AND user_id = ?').get([id, userId]);
+
+      if (existingLike) {
+        if (existingLike.like_type === likeType) {
+          // 取消点赞/点踩
+          db.prepare('DELETE FROM resource_likes WHERE resource_id = ? AND user_id = ?').run([id, userId]);
+        } else {
+          // 切换类型（从点赞变点踩，或反之）
+          db.prepare('UPDATE resource_likes SET like_type = ? WHERE resource_id = ? AND user_id = ?').run([likeType, id, userId]);
+        }
+      } else {
+        // 新增点赞/点踩
+        db.prepare('INSERT INTO resource_likes (resource_id, user_id, like_type) VALUES (?, ?, ?)').run([id, userId, likeType]);
+      }
+
+      // 更新统计
+      const likeCount = db.prepare('SELECT COUNT(*) as count FROM resource_likes WHERE resource_id = ? AND like_type = ?').get([id, 'like']).count;
+      const dislikeCount = db.prepare('SELECT COUNT(*) as count FROM resource_likes WHERE resource_id = ? AND like_type = ?').get([id, 'dislike']).count;
+
+      db.prepare('UPDATE resources SET like_count = ?, dislike_count = ? WHERE id = ?').run([likeCount, dislikeCount, id]);
+
+      saveDatabase();
+
+      res.json({
+        success: true,
+        data: {
+          likeCount,
+          dislikeCount,
+          userAction: existingLike?.like_type === likeType ? null : likeType // null表示已取消
+        }
+      });
+    } catch (error) {
+      console.error('点赞/点踩错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'TOGGLE_LIKE_ERROR',
+          message: '操作失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * 获取用户对多个资源的点赞状态
+   */
+  async getUserLikeStatus(req, res) {
+    try {
+      const { resourceIds } = req.query; // 逗号分隔的资源ID
+      const userId = req.user.id;
+      const db = await getDB();
+
+      if (!resourceIds) {
+        return res.json({
+          success: true,
+          data: {}
+        });
+      }
+
+      const ids = resourceIds.split(',').map(id => parseInt(id));
+
+      const likes = db.prepare(`
+        SELECT resource_id, like_type
+        FROM resource_likes
+        WHERE resource_id IN (${ids.map(() => '?').join(',')}) AND user_id = ?
+      `).all([...ids, userId]);
+
+      const statusMap = {};
+      likes.forEach(like => {
+        statusMap[like.resource_id] = like.like_type;
+      });
+
+      res.json({
+        success: true,
+        data: statusMap
+      });
+    } catch (error) {
+      console.error('获取点赞状态错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'GET_LIKE_STATUS_ERROR',
+          message: '获取点赞状态失败'
         }
       });
     }

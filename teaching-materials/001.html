@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>气管插管术 - 教学资源</title>
+
+  <!-- Vue 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <!-- Element Plus -->
+  <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+  <script src="https://unpkg.com/element-plus"></script>
+
+  <!-- Element Plus Icons -->
+  <script src="https://unpkg.com/@element-plus/icons-vue"></script>
+
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root {
+      --c-primary: #2563EB;
+      --c-accent: #F97316;
+      --c-success: #22C55E;
+      --c-warning: #F59E0B;
+      --c-danger: #EF4444;
+      --c-bg: #0B1220;
+      --c-surface: #111A2E;
+      --c-border: rgba(255,255,255,0.10);
+      --c-text: rgba(255,255,255,0.92);
+      --c-muted: rgba(255,255,255,0.70);
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --space-section: 72px;
+      --space-section-mobile: 40px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background: var(--c-bg);
+      color: var(--c-text);
+      line-height: 1.7;
+    }
+
+    /* 滚动吸附 - 仅桌面端 */
+    @media (min-width: 768px) {
+      .scroll-container {
+        height: 100vh;
+        overflow-y: auto;
+        scroll-snap-type: y mandatory;
+      }
+      .section {
+        scroll-snap-align: start;
+        min-height: 100vh;
+      }
+    }
+
+    .section {
+      padding: var(--space-section) 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    @media (max-width: 767px) {
+      .section {
+        padding: var(--space-section-mobile) 16px;
+        min-height: auto;
+      }
+    }
+
+    /* Element Plus 深色主题覆盖 */
+    .el-card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--radius); }
+    .el-card__header { border-bottom: 1px solid var(--c-border); color: var(--c-text); }
+    .el-card__body { color: var(--c-text); }
+    /* 修复：Tabs 深色主题 */
+    .el-tabs--border-card { background: var(--c-surface); border: 1px solid var(--c-border); }
+    .el-tabs--border-card>.el-tabs__header { background: var(--c-surface); }
+    .el-tabs--border-card>.el-tabs__header .el-tabs__item { background: var(--c-bg); color: var(--c-muted); border-right-color: var(--c-border); border-left-color: var(--c-border); }
+    .el-tabs--border-card>.el-tabs__header .el-tabs__item.is-active { background: var(--c-surface); color: var(--c-primary); border-bottom-color: var(--c-surface); }
+    .el-tabs--border-card>.el-tabs__content { background: var(--c-surface); color: var(--c-text); }
+    .el-tabs__item { color: var(--c-muted); }
+    .el-tabs__item.is-active { color: var(--c-primary); }
+    .el-collapse { border: none; background: transparent; }
+    .el-collapse-item__header { background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-border); border-radius: var(--radius); margin-bottom: 8px; padding: 0 16px; }
+    .el-collapse-item__wrap { background: transparent; border: none; }
+    .el-collapse-item__content { color: var(--c-text); padding: 16px; background: var(--c-surface); border-radius: var(--radius); margin-bottom: 8px; }
+    .el-descriptions { background: var(--c-surface); }
+    .el-descriptions__label { color: var(--c-muted); background: var(--c-bg); }
+    .el-descriptions__content { color: var(--c-text); background: var(--c-bg); }
+    .el-descriptions .el-descriptions__body .el-descriptions__table .el-descriptions__cell.is-bordered-description { border-color: var(--c-border); }
+    .el-descriptions .el-descriptions__body .el-descriptions__table .el-descriptions__cell.is-bordered-content { border-color: var(--c-border); }
+    .el-table { background: var(--c-surface); color: var(--c-text); }
+    .el-table tr { background: var(--c-surface); }
+    .el-table th.el-table__cell { background: var(--c-bg); color: var(--c-text); border-color: var(--c-border); }
+    .el-table td.el-table__cell { border-bottom: 1px solid var(--c-border); }
+    .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell { background: var(--c-bg); }
+    /* 修复：Radio 深色主题 + 左对齐 */
+    .el-radio { color: var(--c-text); display: flex; align-items: flex-start; }
+    .el-radio__label { color: var(--c-text); text-align: left; }
+    .el-radio__input.is-checked .el-radio__inner { border-color: var(--c-primary); background: var(--c-primary); }
+    .el-steps--horizontal { background: transparent; }
+    .el-step__title { color: var(--c-muted); }
+    .el-step__title.is-process, .el-step__title.is-finish { color: var(--c-text); }
+    .el-step__description { color: var(--c-muted); }
+    /* 修复：Alert 深色主题 */
+    .el-alert { border-radius: var(--radius); }
+    .el-alert--info { background: rgba(37,99,235,0.15); border-color: rgba(37,99,235,0.3); }
+    .el-alert--info .el-alert__title { color: #60A5FA; }
+    .el-alert--info .el-alert__description { color: var(--c-text); }
+    .el-alert--success { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3); }
+    .el-alert--success .el-alert__title { color: #4ADE80; }
+    .el-alert--success .el-alert__description { color: var(--c-text); }
+    .el-alert--warning { background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3); }
+    .el-alert--warning .el-alert__title { color: #FBBF24; }
+    .el-alert--warning .el-alert__description { color: var(--c-text); }
+    .el-alert--error { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); }
+    .el-alert--error .el-alert__title { color: #F87171; }
+    .el-alert--error .el-alert__description { color: var(--c-text); }
+    .el-alert__content { color: var(--c-text); }
+    .el-alert__description { color: var(--c-muted); }
+    .el-menu { background: var(--c-surface); border: none; }
+    .el-menu-item { color: var(--c-muted); }
+    .el-menu-item:hover, .el-menu-item.is-active { color: var(--c-text); background: var(--c-bg); }
+    .el-drawer { background: var(--c-surface); }
+    .el-drawer__header { color: var(--c-text); }
+    .el-button--primary { background: var(--c-primary); border-color: var(--c-primary); }
+
+    .section-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: var(--c-text);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 32px;
+      background: var(--c-primary);
+      border-radius: 2px;
+    }
+
+    .content-card {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .quiz-box {
+      background: linear-gradient(135deg, rgba(37,99,235,0.1), rgba(249,115,22,0.1));
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-top: 24px;
+    }
+
+    .quiz-title {
+      color: var(--c-accent);
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .img-placeholder {
+      background: linear-gradient(135deg, var(--c-surface), var(--c-bg));
+      border: 2px dashed var(--c-border);
+      border-radius: var(--radius);
+      padding: 40px;
+      text-align: center;
+      color: var(--c-muted);
+      margin: 16px 0;
+    }
+
+    .teacher-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--c-primary), var(--c-accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 移动端导航抽屉 -->
+    <el-drawer v-model="drawerVisible" direction="ltr" size="70%" :with-header="true" title="目录导航" class="md:hidden">
+      <el-menu :default-active="activeSection" @select="handleNavSelect">
+        <el-menu-item index="home">首页</el-menu-item>
+        <el-menu-item index="section1">概述与适应症</el-menu-item>
+        <el-menu-item index="section2">插管器材准备</el-menu-item>
+        <el-menu-item index="section3">操作步骤详解</el-menu-item>
+        <el-menu-item index="section4">并发症与处理</el-menu-item>
+        <el-menu-item index="section5">特殊情况处理</el-menu-item>
+        <el-menu-item index="quiz">结尾自测</el-menu-item>
+      </el-menu>
+    </el-drawer>
+
+    <!-- 移动端顶部导航栏 -->
+    <div class="fixed top-0 left-0 right-0 z-50 bg-[var(--c-surface)] border-b border-[var(--c-border)] p-4 flex items-center justify-between md:hidden">
+      <el-button :icon="Menu" circle @click="drawerVisible = true"></el-button>
+      <span class="font-semibold">气管插管术</span>
+      <div class="w-8"></div>
+    </div>
+
+    <div class="flex">
+      <!-- 桌面端侧边导航 -->
+      <div class="hidden md:block fixed left-0 top-0 h-full w-56 bg-[var(--c-surface)] border-r border-[var(--c-border)] z-40">
+        <div class="p-6 border-b border-[var(--c-border)]">
+          <h2 class="text-lg font-bold text-[var(--c-text)]">气管插管术</h2>
+          <p class="text-sm text-[var(--c-muted)] mt-1">教学资源</p>
+        </div>
+        <el-menu :default-active="activeSection" @select="handleNavSelect" class="border-none">
+          <el-menu-item index="home">
+            <el-icon><House /></el-icon>
+            <span>首页</span>
+          </el-menu-item>
+          <el-menu-item index="section1">
+            <el-icon><Document /></el-icon>
+            <span>概述与适应症</span>
+          </el-menu-item>
+          <el-menu-item index="section2">
+            <el-icon><Box /></el-icon>
+            <span>插管器材准备</span>
+          </el-menu-item>
+          <el-menu-item index="section3">
+            <el-icon><Guide /></el-icon>
+            <span>操作步骤详解</span>
+          </el-menu-item>
+          <el-menu-item index="section4">
+            <el-icon><Warning /></el-icon>
+            <span>并发症与处理</span>
+          </el-menu-item>
+          <el-menu-item index="section5">
+            <el-icon><Aim /></el-icon>
+            <span>特殊情况处理</span>
+          </el-menu-item>
+          <el-menu-item index="quiz">
+            <el-icon><Edit /></el-icon>
+            <span>结尾自测</span>
+          </el-menu-item>
+        </el-menu>
+      </div>
+
+      <!-- 主内容区 -->
+      <div class="w-full md:ml-56 scroll-container" ref="scrollContainer">
+
+        <!-- 首页 -->
+        <section id="home" class="section">
+          <div class="max-w-4xl mx-auto w-full pt-16 md:pt-0">
+            <div class="text-center mb-12">
+              <el-tag type="primary" size="large" class="mb-4">急救核心技能</el-tag>
+              <h1 class="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-orange-400 bg-clip-text text-transparent">
+                气管插管术
+              </h1>
+              <p class="text-[var(--c-muted)] text-lg">Endotracheal Intubation</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6 mb-8">
+              <div class="content-card">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <el-icon class="text-[var(--c-primary)]"><Flag /></el-icon>
+                  学习目标
+                </h3>
+                <div class="space-y-3">
+                  <div class="flex items-start gap-3">
+                    <el-tag type="success" size="small">1</el-tag>
+                    <span>掌握气管插管术的适应症、禁忌症及操作流程</span>
+                  </div>
+                  <div class="flex items-start gap-3">
+                    <el-tag type="success" size="small">2</el-tag>
+                    <span>熟悉插管器材的选择与准备要点</span>
+                  </div>
+                  <div class="flex items-start gap-3">
+                    <el-tag type="success" size="small">3</el-tag>
+                    <span>了解常见并发症的预防与处理方法</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="content-card">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <el-icon class="text-[var(--c-accent)]"><User /></el-icon>
+                  授课教师
+                </h3>
+                <div class="flex items-center gap-4">
+                  <div class="teacher-avatar">
+                    <el-icon><UserFilled /></el-icon>
+                  </div>
+                  <div>
+                    <p class="font-semibold text-lg">{{teacher_name}}</p>
+                    <p class="text-[var(--c-muted)] text-sm">主讲教师</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-center">
+              <el-button type="primary" size="large" @click="scrollToSection('section1')">
+                开始学习
+                <el-icon class="ml-2"><ArrowDown /></el-icon>
+              </el-button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 区块1：概述与适应症 -->
+        <section id="section1" class="section">
+          <div class="max-w-4xl mx-auto w-full">
+            <h2 class="section-title">概述与适应症</h2>
+
+            <div class="content-card mb-6">
+              <h3 class="font-semibold text-lg mb-3">什么是气管插管术？</h3>
+              <p class="text-[var(--c-muted)] mb-4">
+                气管插管术是将特制的气管导管经口腔或鼻腔置入气管内，建立人工气道的急救技术。
+                它是保障危重患者呼吸道通畅、实施机械通气的基础操作，也是急诊、麻醉、ICU医师必须掌握的核心技能。
+              </p>
+
+              <el-tabs type="border-card">
+                <el-tab-pane label="适应症">
+                  <ul class="space-y-2 text-[var(--c-muted)]">
+                    <li>• 各种原因导致的呼吸衰竭需机械通气者</li>
+                    <li>• 上呼吸道梗阻（喉头水肿、异物、肿瘤等）</li>
+                    <li>• 全身麻醉手术需要气道管理</li>
+                    <li>• 心肺复苏时建立高级气道</li>
+                    <li>• 气道保护能力丧失（昏迷、中毒等）</li>
+                    <li>• 需要频繁吸引气道分泌物</li>
+                  </ul>
+                </el-tab-pane>
+                <el-tab-pane label="禁忌症">
+                  <div class="space-y-3">
+                    <div>
+                      <el-tag type="danger" class="mb-2">相对禁忌</el-tag>
+                      <ul class="text-[var(--c-muted)] ml-4">
+                        <li>• 颈椎损伤（需特殊技术配合）</li>
+                        <li>• 严重凝血功能障碍</li>
+                        <li>• 喉头严重水肿或损伤</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <el-tag type="warning" class="mb-2">注意事项</el-tag>
+                      <ul class="text-[var(--c-muted)] ml-4">
+                        <li>• 急性喉炎应谨慎操作</li>
+                        <li>• 主动脉瘤患者避免剧烈刺激</li>
+                      </ul>
+                    </div>
+                  </div>
+                </el-tab-pane>
+              </el-tabs>
+            </div>
+
+            <!-- 微测验1 -->
+            <div class="quiz-box">
+              <div class="quiz-title">
+                <el-icon><QuestionFilled /></el-icon>
+                知识检测
+              </div>
+              <p class="mb-3">判断题：严重喉头水肿是气管插管的绝对禁忌症。</p>
+              <el-collapse v-model="quiz1Active">
+                <el-collapse-item title="点击查看答案" name="1">
+                  <el-alert type="error" :closable="false" show-icon>
+                    <template #title>
+                      <strong>错误</strong>
+                    </template>
+                    <p class="mt-2">严重喉头水肿是<strong>相对禁忌症</strong>，而非绝对禁忌症。在紧急情况下（如窒息危及生命），仍需尝试插管或采取其他气道建立方式（如环甲膜穿刺、气管切开）。</p>
+                  </el-alert>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+          </div>
+        </section>
+
+        <!-- 区块2：插管器材准备 -->
+        <section id="section2" class="section">
+          <div class="max-w-4xl mx-auto w-full">
+            <h2 class="section-title">插管器材准备</h2>
+
+            <div class="grid md:grid-cols-2 gap-6 mb-6">
+              <div class="content-card">
+                <h3 class="font-semibold text-lg mb-4">核心器材清单</h3>
+                <el-descriptions :column="1" border>
+                  <el-descriptions-item label="喉镜">弯型（Macintosh）/ 直型（Miller）</el-descriptions-item>
+                  <el-descriptions-item label="气管导管">成人男性ID 7.5-8.0mm / 女性ID 7.0-7.5mm</el-descriptions-item>
+                  <el-descriptions-item label="导管芯">金属或塑料，预塑形用</el-descriptions-item>
+                  <el-descriptions-item label="牙垫">防止患者咬闭导管</el-descriptions-item>
+                  <el-descriptions-item label="注射器">10ml，用于气囊充气</el-descriptions-item>
+                  <el-descriptions-item label="固定胶带">妥善固定导管位置</el-descriptions-item>
+                  <el-descriptions-item label="吸引装置">清除分泌物</el-descriptions-item>
+                </el-descriptions>
+              </div>
+
+              <div class="content-card">
+                <h3 class="font-semibold text-lg mb-4">器材图示</h3>
+                <!-- 占位：喉镜、导管、牙垫、吸引器等器材图 -->
+                <div class="img-placeholder">
+                  <el-icon size="48" class="mb-2"><Picture /></el-icon>
+                  <p>气管插管器材全家福示意图</p>
+                  <p class="text-sm mt-2">（包含喉镜、导管、牙垫、注射器等）</p>
+                </div>
+              </div>
+            </div>
+
+            <el-alert type="info" :closable="false" class="mb-6">
+              <template #title>
+                <strong>导管选择技巧</strong>
+              </template>
+              <p>导管型号以内径（ID）标识。快速估算：成人男性约7.5-8.0mm，女性约7.0-7.5mm。也可参考患者小指粗细或鼻孔大小进行估计。</p>
+            </el-alert>
+
+            <!-- 微测验2 -->
+            <div class="quiz-box">
+              <div class="quiz-title">
+                <el-icon><QuestionFilled /></el-icon>
+                知识检测
+              </div>
+              <p class="mb-3">单选题：成年女性患者常规气管插管，应首选哪种型号的气管导管？</p>
+              <el-radio-group v-model="quiz2Answer" class="flex flex-col gap-2 mb-3">
+                <el-radio label="A">A. ID 6.0-6.5mm</el-radio>
+                <el-radio label="B">B. ID 7.0-7.5mm</el-radio>
+                <el-radio label="C">C. ID 8.0-8.5mm</el-radio>
+                <el-radio label="D">D. ID 9.0mm</el-radio>
+              </el-radio-group>
+              <el-button type="primary" @click="checkQuiz2" :disabled="!quiz2Answer">提交答案</el-button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 区块3：操作步骤详解 -->
+        <section id="section3" class="section">
+          <div class="max-w-4xl mx-auto w-full">
+            <h2 class="section-title">操作步骤详解</h2>
+
+            <div class="content-card mb-6">
+              <h3 class="font-semibold text-lg mb-4">经口明视气管插管标准流程</h3>
+
+              <el-steps :active="activeStep" finish-status="success" :direction="isMobile ? 'vertical' : 'horizontal'" class="mb-6">
+                <el-step title="准备" description="器材检查、体位摆放" />
+                <el-step title="预氧合" description="面罩给氧3-5分钟" />
+                <el-step title="诱导" description="给予镇静肌松药物" />
+                <el-step title="暴露" description="喉镜暴露声门" />
+                <el-step title="置管" description="导管通过声门" />
+                <el-step title="确认" description="听诊+ETCO2验证" />
+              </el-steps>
+
+              <div class="grid md:grid-cols-2 gap-4">
+                <div class="p-4 bg-[var(--c-bg)] rounded-lg">
+                  <h4 class="font-semibold mb-2 text-[var(--c-primary)]">体位要点：嗅物位</h4>
+                  <p class="text-[var(--c-muted)] text-sm">头部垫高约10cm，头后仰，使口轴、咽轴、喉轴三轴合一，便于直视声门。</p>
+                  <!-- 占位：头颈摆位示意图 -->
+                  <div class="img-placeholder mt-3">
+                    <el-icon size="32"><Picture /></el-icon>
+                    <p class="text-sm">嗅物位示意图</p>
+                  </div>
+                </div>
+
+                <div class="p-4 bg-[var(--c-bg)] rounded-lg">
+                  <h4 class="font-semibold mb-2 text-[var(--c-primary)]">声门暴露分级（Cormack-Lehane）</h4>
+                  <ul class="text-[var(--c-muted)] text-sm space-y-1">
+                    <li><el-tag size="small" type="success">Ⅰ级</el-tag> 可见全部声门</li>
+                    <li><el-tag size="small" type="success">Ⅱ级</el-tag> 可见部分声门</li>
+                    <li><el-tag size="small" type="warning">Ⅲ级</el-tag> 仅见会厌</li>
+                    <li><el-tag size="small" type="danger">Ⅳ级</el-tag> 仅见软腭</li>
+                  </ul>
+                  <!-- 占位：CL分级Ⅰ-Ⅳ示意图 -->
+                  <div class="img-placeholder mt-3">
+                    <el-icon size="32"><Picture /></el-icon>
+                    <p class="text-sm">CL分级示意图</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <el-alert type="warning" :closable="false" class="mb-6">
+              <template #title>
+                <strong>关键提示</strong>
+              </template>
+              <p>单次插管尝试不应超过30秒，期间密切监测SpO2。如SpO2下降至90%以下，应立即停止操作并面罩通气。</p>
+            </el-alert>
+
+            <!-- 微测验3 -->
+            <div class="quiz-box">
+              <div class="quiz-title">
+                <el-icon><QuestionFilled /></el-icon>
+                知识检测
+              </div>
+              <p class="mb-3">问答题：Cormack-Lehane分级Ⅲ级意味着什么？这对插管操作有何影响？</p>
+              <el-collapse v-model="quiz3Active">
+                <el-collapse-item title="点击查看答案" name="1">
+                  <el-alert type="info" :closable="false" show-icon>
+                    <template #title>
+                      <strong>答案解析</strong>
+                    </template>
+                    <p class="mt-2"><strong>Ⅲ级表示喉镜下仅能看到会厌，无法直视声门。</strong></p>
+                    <p class="mt-2">影响：属于困难气道，需要借助辅助手段（如BURP手法、更换喉镜片、使用可视喉镜或光棒等）才能完成插管。应提前准备困难气道处理预案。</p>
+                  </el-alert>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+          </div>
+        </section>
+
+        <!-- 区块4：并发症与处理 -->
+        <section id="section4" class="section">
+          <div class="max-w-4xl mx-auto w-full">
+            <h2 class="section-title">并发症与处理</h2>
+
+            <div class="content-card mb-6">
+              <el-table :data="complicationData" stripe style="width: 100%">
+                <el-table-column prop="type" label="并发症" width="150" />
+                <el-table-column prop="cause" label="常见原因" />
+                <el-table-column prop="prevention" label="预防/处理" />
+              </el-table>
+            </div>
+
+            <el-alert type="error" :closable="false" class="mb-6">
+              <template #title>
+                <strong>食管误插的危险信号</strong>
+              </template>
+              <ul class="mt-2 space-y-1">
+                <li>• 听诊：胃部有气过水声，双肺无呼吸音</li>
+                <li>• ETCO2监测：无波形或极低数值</li>
+                <li>• SpO2：进行性下降</li>
+                <li>• 发现误插应立即拔管，重新面罩通气后再次尝试</li>
+              </ul>
+            </el-alert>
+
+            <!-- 微测验4 -->
+            <div class="quiz-box">
+              <div class="quiz-title">
+                <el-icon><QuestionFilled /></el-icon>
+                知识检测
+              </div>
+              <p class="mb-3">单选题：确认气管导管位置的金标准是？</p>
+              <el-radio-group v-model="quiz4Answer" class="flex flex-col gap-2 mb-3">
+                <el-radio label="A">A. 观察胸廓起伏</el-radio>
+                <el-radio label="B">B. 双肺听诊呼吸音</el-radio>
+                <el-radio label="C">C. 呼气末二氧化碳（ETCO2）监测</el-radio>
+                <el-radio label="D">D. 导管内有雾气</el-radio>
+              </el-radio-group>
+              <el-button type="primary" @click="checkQuiz4" :disabled="!quiz4Answer">提交答案</el-button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 区块5：特殊情况处理 -->
+        <section id="section5" class="section">
+          <div class="max-w-4xl mx-auto w-full">
+            <h2 class="section-title">特殊情况处理</h2>
+
+            <div class="content-card mb-6">
+              <h3 class="font-semibold text-lg mb-4">困难气道评估：LEMON法则</h3>
+
+              <div class="grid md:grid-cols-5 gap-3 mb-6">
+                <div class="text-center p-3 bg-[var(--c-bg)] rounded-lg">
+                  <el-tag type="primary" size="large" class="mb-2">L</el-tag>
+                  <p class="text-sm text-[var(--c-muted)]">Look externally<br/>外观评估</p>
+                </div>
+                <div class="text-center p-3 bg-[var(--c-bg)] rounded-lg">
+                  <el-tag type="primary" size="large" class="mb-2">E</el-tag>
+                  <p class="text-sm text-[var(--c-muted)]">Evaluate 3-3-2<br/>张口度/下颌/甲舌距</p>
+                </div>
+                <div class="text-center p-3 bg-[var(--c-bg)] rounded-lg">
+                  <el-tag type="primary" size="large" class="mb-2">M</el-tag>
+                  <p class="text-sm text-[var(--c-muted)]">Mallampati<br/>口咽分级</p>
+                </div>
+                <div class="text-center p-3 bg-[var(--c-bg)] rounded-lg">
+                  <el-tag type="primary" size="large" class="mb-2">O</el-tag>
+                  <p class="text-sm text-[var(--c-muted)]">Obstruction<br/>气道梗阻</p>
+                </div>
+                <div class="text-center p-3 bg-[var(--c-bg)] rounded-lg">
+                  <el-tag type="primary" size="large" class="mb-2">N</el-tag>
+                  <p class="text-sm text-[var(--c-muted)]">Neck mobility<br/>颈部活动度</p>
+                </div>
+              </div>
+
+              <!-- 占位：LEMON五要素图解 -->
+              <div class="img-placeholder">
+                <el-icon size="48" class="mb-2"><Picture /></el-icon>
+                <p>LEMON评估法图解</p>
+              </div>
+
+              <el-collapse class="mt-6">
+                <el-collapse-item title="Mallampati分级详解" name="1">
+                  <ul class="space-y-2 text-[var(--c-muted)]">
+                    <li><el-tag size="small" type="success">Ⅰ级</el-tag> 可见软腭、悬雍垂、咽腭弓、扁桃体</li>
+                    <li><el-tag size="small" type="success">Ⅱ级</el-tag> 可见软腭、悬雍垂部分</li>
+                    <li><el-tag size="small" type="warning">Ⅲ级</el-tag> 仅见软腭、悬雍垂根部</li>
+                    <li><el-tag size="small" type="danger">Ⅳ级</el-tag> 仅见硬腭</li>
+                  </ul>
+                  <p class="mt-2 text-sm">Ⅲ-Ⅳ级提示可能存在困难气道</p>
+                </el-collapse-item>
+                <el-collapse-item title="困难气道处理策略" name="2">
+                  <ul class="space-y-2 text-[var(--c-muted)]">
+                    <li>• 优化体位：加强嗅物位，必要时使用斜坡位</li>
+                    <li>• 更换器材：可视喉镜、光棒、纤支镜</li>
+                    <li>• 辅助手法：BURP（向后、向上、向右压迫喉部）</li>
+                    <li>• 替代方案：喉罩、环甲膜穿刺、紧急气管切开</li>
+                  </ul>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+
+            <!-- 微测验5 -->
+            <div class="quiz-box">
+              <div class="quiz-title">
+                <el-icon><QuestionFilled /></el-icon>
+                知识检测
+              </div>
+              <p class="mb-3">判断题：Mallampati Ⅳ级提示可能存在困难气道。</p>
+              <el-collapse v-model="quiz5Active">
+                <el-collapse-item title="点击查看答案" name="1">
+                  <el-alert type="success" :closable="false" show-icon>
+                    <template #title>
+                      <strong>正确</strong>
+                    </template>
+                    <p class="mt-2">Mallampati Ⅳ级表示张口时仅能看到硬腭，咽部结构完全被舌体遮挡，是困难气道的重要预测指标之一。遇到此类患者应提前做好困难气道准备。</p>
+                  </el-alert>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+          </div>
+        </section>
+
+        <!-- 结尾自测 -->
+        <section id="quiz" class="section">
+          <div class="max-w-4xl mx-auto w-full">
+            <h2 class="section-title">结尾自测</h2>
+
+            <div class="content-card">
+              <p class="text-[var(--c-muted)] mb-6">完成以下5道选择题，检验您的学习成果。</p>
+
+              <div v-for="(q, index) in finalQuiz" :key="index" class="mb-8 p-4 bg-[var(--c-bg)] rounded-lg">
+                <p class="font-semibold mb-3">{{ index + 1 }}. {{ q.question }}</p>
+                <el-radio-group v-model="finalAnswers[index]" class="flex flex-col gap-2">
+                  <el-radio v-for="opt in q.options" :key="opt.value" :label="opt.value">
+                    {{ opt.value }}. {{ opt.text }}
+                  </el-radio>
+                </el-radio-group>
+              </div>
+
+              <div class="flex items-center gap-4">
+                <el-button type="primary" size="large" @click="submitFinalQuiz">提交答卷</el-button>
+                <span v-if="finalScore !== null" class="text-lg">
+                  得分：<strong :class="finalScore >= 60 ? 'text-green-400' : 'text-red-400'">{{ finalScore }}</strong> 分
+                </span>
+              </div>
+
+              <div v-if="showFinalResult" class="mt-6">
+                <el-alert :type="finalScore >= 80 ? 'success' : finalScore >= 60 ? 'warning' : 'error'" :closable="false">
+                  <template #title>
+                    <strong>{{ finalScore >= 80 ? '优秀！' : finalScore >= 60 ? '及格，继续努力！' : '需要复习！' }}</strong>
+                  </template>
+                </el-alert>
+
+                <div class="mt-4 space-y-3">
+                  <div v-for="(q, index) in finalQuiz" :key="index" class="p-3 rounded-lg" :class="finalAnswers[index] === q.answer ? 'bg-green-900/30' : 'bg-red-900/30'">
+                    <p class="font-semibold">{{ index + 1 }}. {{ finalAnswers[index] === q.answer ? '✓' : '✗' }} 正确答案：{{ q.answer }}</p>
+                    <p class="text-[var(--c-muted)] text-sm mt-1">{{ q.explanation }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    const app = createApp({
+      setup() {
+        const drawerVisible = ref(false);
+        const activeSection = ref('home');
+        const scrollContainer = ref(null);
+        const isMobile = ref(window.innerWidth < 768);
+        const activeStep = ref(5);
+
+        // 微测验状态
+        const quiz1Active = ref([]);
+        const quiz2Answer = ref('');
+        const quiz3Active = ref([]);
+        const quiz4Answer = ref('');
+        const quiz5Active = ref([]);
+
+        // 并发症表格数据
+        const complicationData = ref([
+          { type: '牙齿损伤', cause: '喉镜用力不当、撬牙', prevention: '支点放在舌根，向上提拉而非撬动' },
+          { type: '食管误插', cause: '声门暴露不清、操作仓促', prevention: 'ETCO2确认、听诊双肺' },
+          { type: '喉痉挛', cause: '麻醉深度不够、刺激过强', prevention: '充分麻醉、动作轻柔' },
+          { type: '气道损伤', cause: '导管过粗、反复插入', prevention: '选择合适型号、限制尝试次数' },
+          { type: '低氧血症', cause: '操作时间过长、通气中断', prevention: '单次≤30秒、及时面罩通气' }
+        ]);
+
+        // 结尾自测数据
+        const finalQuiz = ref([
+          {
+            question: '经口气管插管时，最佳的头部体位是？',
+            options: [
+              { value: 'A', text: '头部后仰、颈部过伸' },
+              { value: 'B', text: '嗅物位（头垫高、轻度后仰）' },
+              { value: 'C', text: '头部中立位' },
+              { value: 'D', text: '头部前屈位' }
+            ],
+            answer: 'B',
+            explanation: '嗅物位使口轴、咽轴、喉轴接近一条直线，最有利于声门暴露。'
+          },
+          {
+            question: '成人气管导管插入深度（门齿处）通常为？',
+            options: [
+              { value: 'A', text: '18-20cm' },
+              { value: 'B', text: '21-23cm' },
+              { value: 'C', text: '25-27cm' },
+              { value: 'D', text: '28-30cm' }
+            ],
+            answer: 'B',
+            explanation: '成人气管导管插入深度一般为门齿处21-23cm（男性22-24cm，女性21-22cm）。'
+          },
+          {
+            question: 'Cormack-Lehane分级Ⅱ级表示？',
+            options: [
+              { value: 'A', text: '可见全部声门' },
+              { value: 'B', text: '可见部分声门' },
+              { value: 'C', text: '仅见会厌' },
+              { value: 'D', text: '仅见软腭' }
+            ],
+            answer: 'B',
+            explanation: 'Ⅱ级为部分声门可见，属于相对容易插管的情况。'
+          },
+          {
+            question: 'LEMON评估法中的"E"代表？',
+            options: [
+              { value: 'A', text: 'External look（外观）' },
+              { value: 'B', text: 'Evaluate 3-3-2（评估张口度等）' },
+              { value: 'C', text: 'Endotracheal tube（导管）' },
+              { value: 'D', text: 'Emergency（紧急）' }
+            ],
+            answer: 'B',
+            explanation: 'E代表Evaluate 3-3-2规则：张口度≥3横指、下颌-舌骨≥3横指、舌骨-甲状软骨≥2横指。'
+          },
+          {
+            question: '气管插管后确认导管位置的金标准是？',
+            options: [
+              { value: 'A', text: '胸部X线' },
+              { value: 'B', text: '双肺听诊' },
+              { value: 'C', text: '呼气末CO2监测（ETCO2）' },
+              { value: 'D', text: '脉搏血氧饱和度' }
+            ],
+            answer: 'C',
+            explanation: 'ETCO2波形持续存在是确认导管在气管内的金标准，胸部X线可进一步确认导管深度。'
+          }
+        ]);
+
+        const finalAnswers = ref(Array(5).fill(''));
+        const finalScore = ref(null);
+        const showFinalResult = ref(false);
+
+        // 导航方法
+        const handleNavSelect = (index) => {
+          scrollToSection(index);
+          drawerVisible.value = false;
+        };
+
+        const scrollToSection = (id) => {
+          const element = document.getElementById(id);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+            activeSection.value = id;
+          }
+        };
+
+        // 测验检查方法
+        const checkQuiz2 = () => {
+          if (quiz2Answer.value === 'B') {
+            ElementPlus.ElMessage.success('正确！成年女性常规选用ID 7.0-7.5mm的气管导管。');
+          } else {
+            ElementPlus.ElMessage.error('错误。正确答案是B。成年女性常规选用ID 7.0-7.5mm的气管导管。');
+          }
+        };
+
+        const checkQuiz4 = () => {
+          if (quiz4Answer.value === 'C') {
+            ElementPlus.ElMessage.success('正确！ETCO2监测是确认导管位置的金标准。');
+          } else {
+            ElementPlus.ElMessage.error('错误。正确答案是C。呼气末二氧化碳（ETCO2）监测是确认气管导管位置的金标准。');
+          }
+        };
+
+        const submitFinalQuiz = () => {
+          let correct = 0;
+          finalQuiz.value.forEach((q, index) => {
+            if (finalAnswers.value[index] === q.answer) {
+              correct++;
+            }
+          });
+          finalScore.value = correct * 20;
+          showFinalResult.value = true;
+        };
+
+        onMounted(() => {
+          window.addEventListener('resize', () => {
+            isMobile.value = window.innerWidth < 768;
+          });
+        });
+
+        return {
+          drawerVisible,
+          activeSection,
+          scrollContainer,
+          isMobile,
+          activeStep,
+          quiz1Active,
+          quiz2Answer,
+          quiz3Active,
+          quiz4Answer,
+          quiz5Active,
+          complicationData,
+          finalQuiz,
+          finalAnswers,
+          finalScore,
+          showFinalResult,
+          handleNavSelect,
+          scrollToSection,
+          checkQuiz2,
+          checkQuiz4,
+          submitFinalQuiz,
+          // Icons
+          Menu: ElementPlusIconsVue.Menu,
+          House: ElementPlusIconsVue.House,
+          Document: ElementPlusIconsVue.Document,
+          Box: ElementPlusIconsVue.Box,
+          Guide: ElementPlusIconsVue.Guide,
+          Warning: ElementPlusIconsVue.Warning,
+          Aim: ElementPlusIconsVue.Aim,
+          Edit: ElementPlusIconsVue.Edit,
+          Flag: ElementPlusIconsVue.Flag,
+          User: ElementPlusIconsVue.User,
+          UserFilled: ElementPlusIconsVue.UserFilled,
+          ArrowDown: ElementPlusIconsVue.ArrowDown,
+          QuestionFilled: ElementPlusIconsVue.QuestionFilled,
+          Picture: ElementPlusIconsVue.Picture
+        };
+      }
+    });
+
+    // 注册Element Plus
+    app.use(ElementPlus);
+
+    // 注册所有图标
+    for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+      app.component(key, component);
+    }
+
+    app.mount('#app');
+  </script>
+</body>
+</html>

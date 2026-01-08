@@ -30,20 +30,22 @@
         label-width="120px"
         size="large"
       >
-        <el-form-item label="资源标题" prop="title">
+        <el-form-item label="教学主题" prop="subject">
           <el-input
-            v-model="form.title"
-            placeholder="请输入资源标题"
+            v-model="form.subject"
+            placeholder="如：静脉注射、心肺复苏"
             maxlength="200"
             show-word-limit
           />
         </el-form-item>
 
         <el-form-item label="课程名称" prop="courseName">
-          <el-input
+          <el-autocomplete
             v-model="form.courseName"
-            placeholder="请输入课程名称，如：人体解剖学"
-            maxlength="100"
+            :fetch-suggestions="queryCourseNames"
+            placeholder="输入关键字搜索课程，如：基础、护理"
+            clearable
+            style="width: 100%"
           />
         </el-form-item>
 
@@ -56,18 +58,23 @@
         </el-form-item>
 
         <el-form-item label="专业" prop="major">
-          <el-input
+          <el-autocomplete
             v-model="form.major"
-            placeholder="如：护理、临床医学、药学"
-            maxlength="100"
+            :fetch-suggestions="queryMajors"
+            placeholder="输入关键字搜索专业，如：医学、护理"
+            clearable
+            style="width: 100%"
           />
         </el-form-item>
 
-        <el-form-item label="教学主题" prop="subject">
+        <el-form-item label="其他要求">
           <el-input
-            v-model="form.subject"
-            placeholder="如：静脉注射技术、心肺复苏"
-            maxlength="100"
+            v-model="form.additionalRequirements"
+            type="textarea"
+            :rows="4"
+            placeholder="可选：补充相关要求或教学内容的部分，如：重点讲解操作步骤、增加案例分析等"
+            maxlength="500"
+            show-word-limit
           />
         </el-form-item>
 
@@ -210,21 +217,83 @@ const currentStep = ref(0)
 
 // 表单数据
 const form = reactive({
-  title: '',
+  subject: '',
   courseName: '',
   courseLevel: '',
   major: '',
-  subject: '',
+  additionalRequirements: '',
   contentHtml: ''
 })
 
+// 预设课程名称推荐列表
+const presetCourseNames = [
+  '基础护理学', '人体结构基础', '人体解剖学', '生理学', '病理学',
+  '药理学', '内科护理学', '外科护理学', '妇产科护理学', '儿科护理学',
+  '急救护理学', '社区护理学', '护理管理学', '护理伦理学', '护理心理学',
+  '健康评估', '医学影像学', '临床检验学', '医学免疫学', '医学微生物学',
+  '中医护理学', '老年护理学', '精神科护理学', '康复护理学', '手术室护理学',
+  '传染病护理学', '皮肤与性病护理学', '五官科护理学', '肿瘤护理学'
+]
+
+// 预设专业推荐列表
+const presetMajors = [
+  '护理', '护理学', '助产', '临床医学', '预防医学',
+  '口腔医学', '中医学', '针灸推拿', '康复治疗技术', '医学检验技术',
+  '医学影像技术', '药学', '中药学', '药品经营与管理', '卫生信息管理',
+  '公共卫生管理', '健康管理', '老年保健与管理', '医学营养', '眼视光技术',
+  '医学美容技术', '口腔医学技术'
+]
+
+// 动态数据（从数据库获取）
+const usedCourseNames = ref([])
+const usedMajors = ref([])
+
+// 合并预设和动态数据（去重）
+const courseNameOptions = computed(() => {
+  const all = [...new Set([...presetCourseNames, ...usedCourseNames.value])]
+  return all.sort()
+})
+
+const majorOptions = computed(() => {
+  const all = [...new Set([...presetMajors, ...usedMajors.value])]
+  return all.sort()
+})
+
+// 获取用户已使用的��程名称和专业
+const loadUsedFields = async () => {
+  try {
+    const response = await resourceAPI.getUsedFields()
+    if (response && response.data) {
+      usedCourseNames.value = response.data.courseNames || []
+      usedMajors.value = response.data.majors || []
+    }
+  } catch (error) {
+    console.error('获取已使用字段失败:', error)
+  }
+}
+
+// 课程名称自动完成
+const queryCourseNames = (queryString, cb) => {
+  const results = queryString
+    ? courseNameOptions.value.filter(item => item.toLowerCase().includes(queryString.toLowerCase()))
+    : courseNameOptions.value
+  cb(results.map(item => ({ value: item })))
+}
+
+// 专业自动完成
+const queryMajors = (queryString, cb) => {
+  const results = queryString
+    ? majorOptions.value.filter(item => item.toLowerCase().includes(queryString.toLowerCase()))
+    : majorOptions.value
+  cb(results.map(item => ({ value: item })))
+}
+
 // 表单验证规则
 const rules = {
-  title: [{ required: true, message: '请输入资源标题', trigger: 'blur' }],
+  subject: [{ required: true, message: '请输入教学主题', trigger: 'blur' }],
   courseName: [{ required: true, message: '请输入课程名称', trigger: 'blur' }],
   courseLevel: [{ required: true, message: '请选择教学层次', trigger: 'change' }],
-  major: [{ required: true, message: '请输入专业', trigger: 'blur' }],
-  subject: [{ required: true, message: '请输入教学主题', trigger: 'blur' }]
+  major: [{ required: true, message: '请输入专业', trigger: 'blur' }]
 }
 
 // 步骤控制
@@ -233,11 +302,6 @@ const nextStep = async () => {
     // 验证基础信息
     const valid = await formRef.value.validate().catch(() => false)
     if (!valid) return
-
-    // 自动填充标题
-    if (!form.title) {
-      form.title = `${form.courseName} - ${form.subject}`
-    }
   }
 
   currentStep.value++
@@ -269,7 +333,8 @@ const generateContent = async () => {
       courseName: form.courseName,
       subject: form.subject,
       courseLevel: form.courseLevel,
-      major: form.major
+      major: form.major,
+      additionalRequirements: form.additionalRequirements
     })
 
     console.log('AI生成响应:', response)
@@ -393,11 +458,11 @@ const loadResource = async () => {
 
     // 填充表单数据
     Object.assign(form, {
-      title: response.title || '',
+      subject: response.title || response.subject || '',
       courseName: response.course_name || '',
       courseLevel: response.course_level || '',
       major: response.major || '',
-      subject: response.subject || '',
+      additionalRequirements: response.additional_requirements || '',
       contentHtml: response.content_html || ''
     })
 
@@ -420,6 +485,9 @@ onMounted(async () => {
       isEditMode: isEditMode.value,
       resourceId: resourceId.value
     })
+
+    // 加载用户已使用的课程名称和专业（用于推荐）
+    await loadUsedFields()
 
     // 如果是编辑模式，加载资源数据
     if (isEditMode.value) {

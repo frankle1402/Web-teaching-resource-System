@@ -352,7 +352,7 @@ ${JSON.stringify(outline, null, 2)}
    */
   async generateSimpleContent(req, res) {
     try {
-      const { courseName, subject, courseLevel, major } = req.body;
+      const { courseName, subject, courseLevel, major, additionalRequirements } = req.body;
 
       if (!courseName || !subject) {
         return res.status(400).json({
@@ -375,6 +375,7 @@ ${JSON.stringify(outline, null, 2)}
 - 教学层次：${courseLevel || '高职'}
 - 专业：${major || '护理'}
 - 教学主题：${subject}
+${additionalRequirements ? `- 其他要求：${additionalRequirements}` : ''}
 
 【UI设计系统（强制使用）】
 必须在<head>中引入Bootstrap 5（国内CDN）：
