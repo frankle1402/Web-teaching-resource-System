@@ -13,7 +13,10 @@ CREATE TABLE IF NOT EXISTS users (
     phone TEXT NOT NULL,                      -- 手机号
     nickname TEXT,                            -- 用户昵称（可选）
     avatar_url TEXT,                          -- 头像URL（可选）
+    real_name TEXT,                           -- 真实姓名
+    organization TEXT,                        -- 单位/机构
     role TEXT DEFAULT 'user',                 -- 用户角色：'admin'=管理员, 'user'=普通用户
+    profile_completed INTEGER DEFAULT 0,      -- 是否完善资料：0=未完善，1=已完善
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
     status INTEGER DEFAULT 1                  -- 账号状态：1=正常，0=禁用

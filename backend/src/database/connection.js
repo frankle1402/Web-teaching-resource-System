@@ -87,15 +87,40 @@ function runMigrations(db) {
     // 检查users表是否有role字段
     const userColumns = db.exec("PRAGMA table_info(users)");
     let hasRole = false;
+    let hasRealName = false;
+    let hasOrganization = false;
+    let hasProfileCompleted = false;
     if (userColumns.length > 0) {
       const userColNames = userColumns[0].values.map(col => col[1]);
       hasRole = userColNames.includes('role');
+      hasRealName = userColNames.includes('real_name');
+      hasOrganization = userColNames.includes('organization');
+      hasProfileCompleted = userColNames.includes('profile_completed');
     }
 
     if (!hasRole) {
       console.log('⚙️  运行迁移: 添加users.role字段...');
       db.exec("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
       console.log('✓ users.role字段添加成功');
+    }
+
+    // 用户资料完善相关字段
+    if (!hasRealName) {
+      console.log('⚙️  运行迁移: 添加users.real_name字段...');
+      db.exec("ALTER TABLE users ADD COLUMN real_name TEXT");
+      console.log('✓ users.real_name字段添加成功');
+    }
+
+    if (!hasOrganization) {
+      console.log('⚙️  运行迁移: 添加users.organization字段...');
+      db.exec("ALTER TABLE users ADD COLUMN organization TEXT");
+      console.log('✓ users.organization字段添加成功');
+    }
+
+    if (!hasProfileCompleted) {
+      console.log('⚙️  运行迁移: 添加users.profile_completed字段...');
+      db.exec("ALTER TABLE users ADD COLUMN profile_completed INTEGER DEFAULT 0");
+      console.log('✓ users.profile_completed字段添加成功');
     }
 
     // 检查admin_logs表是否存在
@@ -123,7 +148,8 @@ function runMigrations(db) {
     // 如果有迁移执行，保存数据库
     if (!hasLikeCount || !hasDislikeCount || tables.length === 0 ||
         !hasIsDisabled || !hasDisabledAt || !hasDisabledBy || !hasDisabledReason ||
-        !hasRole || adminLogsTables.length === 0) {
+        !hasRole || !hasRealName || !hasOrganization || !hasProfileCompleted ||
+        adminLogsTables.length === 0) {
       saveDatabase();
       console.log('✓ 数据库迁移完成并保存');
     }

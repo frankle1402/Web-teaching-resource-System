@@ -315,6 +315,102 @@ class AdminController {
   }
 
   /**
+   * 创建新用户（管理员功能）
+   */
+  async createUser(req, res) {
+    try {
+      const { phone, real_name, nickname, organization, avatar_url, role } = req.body;
+
+      // 验证必填字段
+      if (!phone || !real_name || !organization) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'MISSING_REQUIRED_FIELDS',
+            message: '请填写手机号、真实姓名和单位/机构'
+          }
+        });
+      }
+
+      // 验证手机号格式
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_PHONE',
+            message: '请输入正确的手机号格式'
+          }
+        });
+      }
+
+      // 验证角色
+      if (role && !['admin', 'user'].includes(role)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_ROLE',
+            message: '角色只能是 admin 或 user'
+          }
+        });
+      }
+
+      const db = await getDB();
+
+      // 检查手机号是否已存在
+      const existingUser = db.prepare('SELECT * FROM users WHERE phone = ?').get([phone]);
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'PHONE_EXISTS',
+            message: '该手机号已被注册'
+          }
+        });
+      }
+
+      // 生成openid
+      const { v4: uuidv4 } = require('uuid');
+      const openid = uuidv4();
+
+      // 插入新用户
+      const result = db.prepare(`
+        INSERT INTO users (openid, phone, real_name, nickname, organization, avatar_url, role, profile_completed, created_at, last_login)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
+      `).run([openid, phone, real_name, nickname || real_name, organization, avatar_url || null, role || 'user']);
+
+      saveDatabase();
+
+      // 获取新创建的用户
+      const newUser = db.prepare('SELECT * FROM users WHERE id = ?').get([result.lastInsertRowid]);
+
+      // 记录操作日志
+      await this._logAction(db, req.user.id, 'create_user', 'user', newUser.id, {
+        phone,
+        real_name,
+        organization,
+        role: role || 'user'
+      });
+
+      console.log(`✓ 管理员 ${req.user.phone} 创建了新用户 ${phone}`);
+
+      res.json({
+        success: true,
+        data: newUser,
+        message: '用户创建成功'
+      });
+    } catch (error) {
+      console.error('创建用户错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'CREATE_USER_ERROR',
+          message: '创建用户失败'
+        }
+      });
+    }
+  }
+
+  /**
    * 获取指定用户的资源列表
    */
   async getUserResources(req, res) {

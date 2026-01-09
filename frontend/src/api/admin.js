@@ -26,6 +26,17 @@ export const adminAPI = {
   },
 
   /**
+   * 创建新用户
+   */
+  createUser(data) {
+    return request({
+      url: '/admin/users',
+      method: 'post',
+      data
+    })
+  },
+
+  /**
    * 启用/禁用用户
    */
   updateUserStatus(id, status) {

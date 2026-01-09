@@ -4,18 +4,24 @@
       <template #header>
         <div class="card-header">
           <h3>用户管理</h3>
-          <el-input
-            v-model="searchKeyword"
-            placeholder="搜索用户手机号或昵称"
-            style="width: 250px"
-            clearable
-            @clear="loadUsers"
-            @keyup.enter="loadUsers"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
+          <div class="header-actions">
+            <el-button type="primary" @click="openCreateDialog">
+              <el-icon><Plus /></el-icon>
+              新增用户
+            </el-button>
+            <el-input
+              v-model="searchKeyword"
+              placeholder="搜索用户手机号或昵称"
+              style="width: 250px"
+              clearable
+              @clear="loadUsers"
+              @keyup.enter="loadUsers"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </div>
         </div>
       </template>
 
@@ -40,9 +46,19 @@
             {{ row.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') }}
           </template>
         </el-table-column>
-        <el-table-column prop="nickname" label="昵称" width="150">
+        <el-table-column prop="real_name" label="真实姓名" width="120">
+          <template #default="{ row }">
+            {{ row.real_name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="nickname" label="昵称" width="120">
           <template #default="{ row }">
             {{ row.nickname || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="organization" label="单位/机构" width="150">
+          <template #default="{ row }">
+            {{ row.organization || '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="role" label="角色" width="100">
@@ -126,6 +142,37 @@
         <el-button type="primary" @click="saveUser">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 新增用户对话框 -->
+    <el-dialog v-model="createDialogVisible" title="新增用户" width="500px">
+      <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="100px">
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="createForm.phone" placeholder="请输入手机号" maxlength="11" />
+        </el-form-item>
+        <el-form-item label="真实姓名" prop="real_name">
+          <el-input v-model="createForm.real_name" placeholder="请输入真实姓名" />
+        </el-form-item>
+        <el-form-item label="单位/机构" prop="organization">
+          <el-input v-model="createForm.organization" placeholder="请输入单位或机构名称" />
+        </el-form-item>
+        <el-form-item label="昵称" prop="nickname">
+          <el-input v-model="createForm.nickname" placeholder="选填，默认使用真实姓名" />
+        </el-form-item>
+        <el-form-item label="头像URL" prop="avatar_url">
+          <el-input v-model="createForm.avatar_url" placeholder="选填，请输入图片链接" />
+        </el-form-item>
+        <el-form-item label="系统角色" prop="role">
+          <el-select v-model="createForm.role" style="width: 100%">
+            <el-option label="普通用户" value="user" />
+            <el-option label="管理员" value="admin" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="creating" @click="createUser">创建</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -134,7 +181,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { adminAPI } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Plus } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -156,6 +203,33 @@ const editForm = reactive({
   nickname: '',
   role: 'user'
 })
+
+// 新增用户相关
+const createDialogVisible = ref(false)
+const createFormRef = ref(null)
+const creating = ref(false)
+const createForm = reactive({
+  phone: '',
+  real_name: '',
+  organization: '',
+  nickname: '',
+  avatar_url: '',
+  role: 'user'
+})
+
+// 新增用户表单验证规则
+const createRules = {
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号格式', trigger: 'blur' }
+  ],
+  real_name: [
+    { required: true, message: '请输入真实姓名', trigger: 'blur' }
+  ],
+  organization: [
+    { required: true, message: '请输入单位/机构', trigger: 'blur' }
+  ]
+}
 
 /**
  * 加载用户列表
@@ -256,6 +330,59 @@ const saveUser = async () => {
   }
 }
 
+/**
+ * 打开新增用户对话框
+ */
+const openCreateDialog = () => {
+  // 重置表单
+  createForm.phone = ''
+  createForm.real_name = ''
+  createForm.organization = ''
+  createForm.nickname = ''
+  createForm.avatar_url = ''
+  createForm.role = 'user'
+  createDialogVisible.value = true
+}
+
+/**
+ * 创建新用户
+ */
+const createUser = async () => {
+  if (!createFormRef.value) return
+
+  try {
+    const valid = await createFormRef.value.validate()
+    if (!valid) return
+
+    creating.value = true
+
+    const submitData = {
+      phone: createForm.phone,
+      real_name: createForm.real_name,
+      organization: createForm.organization,
+      role: createForm.role
+    }
+
+    if (createForm.nickname) {
+      submitData.nickname = createForm.nickname
+    }
+
+    if (createForm.avatar_url) {
+      submitData.avatar_url = createForm.avatar_url
+    }
+
+    await adminAPI.createUser(submitData)
+
+    ElMessage.success('用户创建成功')
+    createDialogVisible.value = false
+    loadUsers()
+  } catch (error) {
+    ElMessage.error(error.message || '创建失败')
+  } finally {
+    creating.value = false
+  }
+}
+
 onMounted(() => {
   loadUsers()
 })
@@ -273,6 +400,12 @@ onMounted(() => {
 .card-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
   align-items: center;
 }
 

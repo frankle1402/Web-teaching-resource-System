@@ -5,7 +5,7 @@
       <div class="aside-header">
         <div class="logo">
           <el-icon :size="32"><Reading /></el-icon>
-          <span class="logo-text">教学资源系统</span>
+          <span class="logo-text">医教智创云平台</span>
         </div>
       </div>
 
@@ -14,27 +14,27 @@
         router
         class="aside-menu"
       >
-        <el-menu-item index="/resources">
+        <el-menu-item index="/dashboard/resources">
           <el-icon><Document /></el-icon>
           <span>我的资源</span>
         </el-menu-item>
 
-        <el-menu-item index="/resources/create">
+        <el-menu-item index="/dashboard/resources/create">
           <el-icon><Plus /></el-icon>
           <span>创建资源</span>
         </el-menu-item>
 
-        <el-menu-item index="/folders">
+        <el-menu-item index="/dashboard/folders">
           <el-icon><Folder /></el-icon>
           <span>文件夹管理</span>
         </el-menu-item>
 
-        <el-menu-item index="/templates">
+        <el-menu-item index="/dashboard/templates">
           <el-icon><Grid /></el-icon>
           <span>模板中心</span>
         </el-menu-item>
 
-        <el-menu-item index="/help">
+        <el-menu-item index="/dashboard/help">
           <el-icon><QuestionFilled /></el-icon>
           <span>帮助中心</span>
         </el-menu-item>
@@ -52,22 +52,22 @@
           <el-divider style="margin: 12px 0; border-color: rgba(255,255,255,0.2)" />
           <div class="menu-group-title">管理员功能</div>
 
-          <el-menu-item index="/admin/stats">
+          <el-menu-item index="/dashboard/admin/stats">
             <el-icon><DataAnalysis /></el-icon>
             <span>数据看板</span>
           </el-menu-item>
 
-          <el-menu-item index="/admin/users">
+          <el-menu-item index="/dashboard/admin/users">
             <el-icon><UserFilled /></el-icon>
             <span>用户管理</span>
           </el-menu-item>
 
-          <el-menu-item index="/admin/resources">
+          <el-menu-item index="/dashboard/admin/resources">
             <el-icon><Files /></el-icon>
             <span>全站资源</span>
           </el-menu-item>
 
-          <el-menu-item index="/admin/logs">
+          <el-menu-item index="/dashboard/admin/logs">
             <el-icon><Tickets /></el-icon>
             <span>操作日志</span>
           </el-menu-item>
@@ -109,7 +109,11 @@
 
       <!-- 主内容 -->
       <el-main class="dashboard-main">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <keep-alive>
+            <component :is="Component" :key="route.path" />
+          </keep-alive>
+        </router-view>
       </el-main>
     </el-container>
   </el-container>

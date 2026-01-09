@@ -5,14 +5,14 @@ const { getDB, saveDatabase } = require('../database/connection');
  */
 class FolderController {
   /**
-   * 获取文件夹树
+   * 获取文件夹树（带资源数量统计）
    */
   async getFolders(req, res) {
     try {
       const userId = req.user.id;
       const db = await getDB();
 
-      // ���询所有文件夹
+      // 查询所有文件夹
       const folders = db.prepare(`
         SELECT id, name, parent_id, created_at
         FROM folders
@@ -20,21 +20,55 @@ class FolderController {
         ORDER BY created_at DESC
       `).all([userId]);
 
+      // 统计每个文件夹的资源数量
+      const resourceCounts = db.prepare(`
+        SELECT folder_id, COUNT(*) as count
+        FROM resources
+        WHERE user_id = ?
+        GROUP BY folder_id
+      `).all([userId]);
+
+      // 创建资源数量映射
+      const countMap = {};
+      resourceCounts.forEach(row => {
+        countMap[row.folder_id || 'null'] = row.count;
+      });
+
+      // 递归统计子文件夹的资源数量
+      const countResources = (folderId) => {
+        let count = countMap[folderId] || 0;
+        // 递归计算子文件夹的资源数量
+        const children = folders.filter(f => f.parent_id === folderId);
+        children.forEach(child => {
+          count += countResources(child.id);
+        });
+        return count;
+      };
+
       // 构建树形结构
       const buildTree = (parentId = null) => {
         return folders
           .filter(folder => folder.parent_id === parentId)
           .map(folder => ({
             ...folder,
+            resourceCount: countResources(folder.id),
+            canDelete: countResources(folder.id) === 0 &&
+                       !folders.some(f => f.parent_id === folder.id),
             children: buildTree(folder.id)
           }));
       };
 
       const tree = buildTree();
 
+      // 返回未分类资源数量
+      const unclassifiedCount = countMap['null'] || 0;
+
       res.json({
         success: true,
-        data: tree
+        data: {
+          tree,
+          unclassifiedCount
+        }
       });
     } catch (error) {
       console.error('获取文件夹列表错误:', error);

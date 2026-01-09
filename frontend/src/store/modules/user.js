@@ -9,7 +9,8 @@ import router from '@/router'
 export const useUserStore = defineStore('user', {
   state: () => ({
     token: localStorage.getItem('auth_token') || '',
-    userInfo: JSON.parse(localStorage.getItem('user_info') || '{}')
+    userInfo: JSON.parse(localStorage.getItem('user_info') || '{}'),
+    needCompleteProfile: false
   }),
 
   getters: {
@@ -36,7 +37,12 @@ export const useUserStore = defineStore('user', {
     /**
      * 获取用户角色
      */
-    userRole: (state) => state.userInfo.role || 'user'
+    userRole: (state) => state.userInfo.role || 'user',
+
+    /**
+     * 是否需要完善资料
+     */
+    isProfileIncomplete: (state) => !state.userInfo.profile_completed || state.userInfo.profile_completed === 0
   },
 
   actions: {
@@ -57,11 +63,64 @@ export const useUserStore = defineStore('user', {
         ElMessage.success('登录成功')
 
         // 跳转到Dashboard
-        router.push('/')
+        router.push('/dashboard')
 
         return true
       } catch (error) {
         console.error('登录失败:', error)
+        return false
+      }
+    },
+
+    /**
+     * 验证码登录
+     */
+    async loginWithCode(phone, code) {
+      try {
+        const data = await authAPI.loginWithCode({ phone, code })
+
+        this.token = data.token
+        this.userInfo = data.user
+        this.needCompleteProfile = data.needCompleteProfile || false
+
+        // 保存到localStorage
+        localStorage.setItem('auth_token', data.token)
+        localStorage.setItem('user_info', JSON.stringify(data.user))
+
+        ElMessage.success('登录成功')
+
+        // 根据是否需要完善资料决定跳转
+        if (this.needCompleteProfile) {
+          router.push('/complete-profile')
+        } else {
+          router.push('/dashboard')
+        }
+
+        return true
+      } catch (error) {
+        console.error('登录失败:', error)
+        return false
+      }
+    },
+
+    /**
+     * 完善用户资料
+     */
+    async completeProfile(profileData) {
+      try {
+        const data = await authAPI.completeProfile(profileData)
+
+        this.userInfo = data.user
+        this.needCompleteProfile = false
+
+        localStorage.setItem('user_info', JSON.stringify(data.user))
+
+        ElMessage.success('资料完善成功')
+        router.push('/dashboard')
+
+        return true
+      } catch (error) {
+        console.error('完善资料失败:', error)
         return false
       }
     },
@@ -78,11 +137,16 @@ export const useUserStore = defineStore('user', {
         // 清除本地数据
         this.token = ''
         this.userInfo = {}
+        this.needCompleteProfile = false
         localStorage.removeItem('auth_token')
         localStorage.removeItem('user_info')
 
         ElMessage.success('已退出登录')
-        router.push('/login')
+
+        // 使用 window.location.href 确保跳转
+        setTimeout(() => {
+          window.location.href = '/'
+        }, 100)
       }
     },
 
@@ -106,6 +170,7 @@ export const useUserStore = defineStore('user', {
         // Token无效，清除本地数据
         this.token = ''
         this.userInfo = {}
+        this.needCompleteProfile = false
         localStorage.removeItem('auth_token')
         localStorage.removeItem('user_info')
         return false

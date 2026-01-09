@@ -17,6 +17,42 @@ export const authAPI = {
   },
 
   /**
+   * 发送验证码
+   * @param {Object} data - { phone: string }
+   */
+  sendCode(data) {
+    return request({
+      url: '/auth/send-code',
+      method: 'post',
+      data
+    })
+  },
+
+  /**
+   * 验证码登录
+   * @param {Object} data - { phone: string, code: string }
+   */
+  loginWithCode(data) {
+    return request({
+      url: '/auth/login-with-code',
+      method: 'post',
+      data
+    })
+  },
+
+  /**
+   * 完善用户资料
+   * @param {Object} data - { real_name, organization, nickname?, avatar_url? }
+   */
+  completeProfile(data) {
+    return request({
+      url: '/auth/complete-profile',
+      method: 'post',
+      data
+    })
+  },
+
+  /**
    * 退出登录
    */
   logout() {

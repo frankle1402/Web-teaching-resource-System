@@ -5,7 +5,7 @@
       <div class="nav-container">
         <div class="nav-logo" @click="$router.push('/login')">
           <el-icon><Document /></el-icon>
-          <span>教学资源系统</span>
+          <span>医教智创云平台</span>
         </div>
         <div class="nav-actions">
           <el-button v-if="!userStore.isLoggedIn" type="primary" @click="goToLogin">

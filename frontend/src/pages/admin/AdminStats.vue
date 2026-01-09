@@ -94,11 +94,11 @@
           <div class="detail-card">
             <h3>快捷操作</h3>
             <div class="quick-actions">
-              <el-button type="primary" @click="$router.push('/admin/users')">
+              <el-button type="primary" @click="$router.push('/dashboard/admin/users')">
                 <el-icon><User /></el-icon>
                 用户管理
               </el-button>
-              <el-button type="success" @click="$router.push('/admin/resources')">
+              <el-button type="success" @click="$router.push('/dashboard/admin/resources')">
                 <el-icon><FolderOpened /></el-icon>
                 资源管理
               </el-button>

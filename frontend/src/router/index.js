@@ -2,6 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/store/modules/user'
 
 const routes = [
+  // 首页（营销页面）
+  {
+    path: '/',
+    name: 'Home',
+    component: () => import('@/pages/HomePage.vue'),
+    meta: { requiresAuth: false, title: '智能医学教学材料生成平台' }
+  },
+  // 登录页（保留独立入口）
   {
     path: '/login',
     name: 'Login',
@@ -15,13 +23,20 @@ const routes = [
     meta: { requiresAuth: false, title: '教学资源中心' }
   },
   {
-    path: '/',
+    path: '/complete-profile',
+    name: 'CompleteProfile',
+    component: () => import('@/pages/CompleteProfile.vue'),
+    meta: { requiresAuth: true, title: '完善个人信息' }
+  },
+  // Dashboard（需要认证）
+  {
+    path: '/dashboard',
     component: () => import('@/pages/Dashboard.vue'),
     meta: { requiresAuth: true },
     children: [
       {
         path: '',
-        redirect: '/resources'
+        redirect: '/dashboard/resources'
       },
       {
         path: 'resources',
@@ -104,9 +119,7 @@ const router = createRouter({
  */
 router.beforeEach(async (to, from, next) => {
   // 设置页面标题
-  document.title = to.meta.title
-    ? `${to.meta.title} - 教学资源管理系统`
-    : '教学资源管理系统'
+  document.title = to.meta.title || '智能医学教学材料生成平台'
 
   const userStore = useUserStore()
 
@@ -118,8 +131,8 @@ router.beforeEach(async (to, from, next) => {
       if (isValid) {
         // 检查是否需要管理员权限
         if (to.meta.requiresAdmin && !userStore.isAdmin) {
-          // 非管理员访问管理员页面，跳转到首页
-          next('/')
+          // 非管理员访问管理员页面，跳转到Dashboard
+          next('/dashboard')
         } else {
           next()
         }
@@ -133,8 +146,8 @@ router.beforeEach(async (to, from, next) => {
   } else {
     // 不需要认证的路由
     if (to.path === '/login' && userStore.isLoggedIn) {
-      // 已登录用户访问登录页，跳转到首页
-      next('/')
+      // 已登录用户访问登录页，跳转到Dashboard
+      next('/dashboard')
     } else {
       next()
     }

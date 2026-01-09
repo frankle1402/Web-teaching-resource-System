@@ -343,12 +343,12 @@ const handleSizeChange = () => {
 
 // 创建资源
 const handleCreate = () => {
-  router.push('/resources/create')
+  router.push('/dashboard/resources/create')
 }
 
 // 编辑资源
 const handleEdit = (row) => {
-  router.push(`/resources/edit/${row.id}`)
+  router.push(`/dashboard/resources/edit/${row.id}`)
 }
 
 // 查看版本历史

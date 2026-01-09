@@ -29,10 +29,17 @@ class ResourceController {
       let whereConditions = isAdmin ? [] : ['user_id = ?'];
       let params = isAdmin ? [] : [userId];
 
-      if (folderId) {
+      // folderId 特殊值处理
+      // 'all' - 全部资源（不筛选文件夹）
+      // 'uncategorized' 或 'null' - 未分类资源（folder_id IS NULL）
+      // 其他数字 - 指定文件夹
+      if (folderId === 'uncategorized' || folderId === 'null') {
+        whereConditions.push('folder_id IS NULL');
+      } else if (folderId && folderId !== 'all') {
         whereConditions.push('folder_id = ?');
         params.push(folderId);
       }
+      // folderId === 'all' 或 undefined 时不添加文件夹筛选条件
 
       if (status) {
         whereConditions.push('status = ?');
@@ -1035,6 +1042,139 @@ class ResourceController {
         error: {
           code: 'GET_LIKE_STATUS_ERROR',
           message: '获取点赞状态失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * 移动资源到指定文件夹
+   */
+  async moveResource(req, res) {
+    try {
+      const { id } = req.params;
+      const { folderId } = req.body; // 目标文件夹ID，null表示移到未分类
+
+      const userId = req.user.id;
+      const isAdmin = req.user.role === 'admin';
+      const db = await getDB();
+
+      // 检查资源是否存在
+      const resource = db.prepare(`
+        SELECT * FROM resources WHERE id = ? ${!isAdmin ? 'AND user_id = ?' : ''}
+      `).get(isAdmin ? [id] : [id, userId]);
+
+      if (!resource) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'RESOURCE_NOT_FOUND',
+            message: '资源不存在'
+          }
+        });
+      }
+
+      // 如果指定了文件夹，验证文件夹是否存在且属于当前用户
+      if (folderId !== null && folderId !== '') {
+        const folder = db.prepare('SELECT * FROM folders WHERE id = ? AND user_id = ?').get([folderId, userId]);
+        if (!folder) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'FOLDER_NOT_FOUND',
+              message: '目标文件夹不存在'
+            }
+          });
+        }
+      }
+
+      // 更新资源的文件夹
+      db.prepare('UPDATE resources SET folder_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run([folderId || null, id]);
+      saveDatabase();
+
+      console.log(`✓ 移动资源: ${resource.title} -> 文件夹${folderId || '未分类'} (用户: ${req.user.phone})`);
+
+      res.json({
+        success: true,
+        message: '资源已移动'
+      });
+    } catch (error) {
+      console.error('移动资源错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'MOVE_RESOURCE_ERROR',
+          message: '移动资源失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * 批量移动资源到指定文件夹
+   */
+  async batchMoveResources(req, res) {
+    try {
+      const { resourceIds, folderId } = req.body; // resourceIds: 资源ID数组，folderId: 目标文件夹ID（null表示移到未分类）
+
+      if (!resourceIds || !Array.isArray(resourceIds) || resourceIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_RESOURCE_IDS',
+            message: '资源ID无效'
+          }
+        });
+      }
+
+      const userId = req.user.id;
+      const isAdmin = req.user.role === 'admin';
+      const db = await getDB();
+
+      // 如果指定了文件夹，验证文件夹是否存在且属于当前用户
+      if (folderId !== null && folderId !== '') {
+        const folder = db.prepare('SELECT * FROM folders WHERE id = ? AND user_id = ?').get([folderId, userId]);
+        if (!folder) {
+          return res.status(404).json({
+            success: false,
+            error: {
+              code: 'FOLDER_NOT_FOUND',
+              message: '目标文件夹不存在'
+            }
+          });
+        }
+      }
+
+      // 构建查询条件：管理员可以操作所有资源，普通用户只能操作自己的
+      let whereClause = `id IN (${resourceIds.map(() => '?').join(',')})`;
+      let params = [...resourceIds];
+
+      if (!isAdmin) {
+        whereClause += ' AND user_id = ?';
+        params.push(userId);
+      }
+
+      // 批量更新资源的文件夹
+      const result = db.prepare(`UPDATE resources SET folder_id = ?, updated_at = datetime('now') WHERE ${whereClause}`).run([folderId || null, ...params]);
+
+      saveDatabase();
+
+      console.log(`✓ 批量移动资源: ${result.changes} 个资源 -> 文件夹${folderId || '未分类'} (用户: ${req.user.phone})`);
+
+      res.json({
+        success: true,
+        message: `已移动 ${result.changes} 个资源`,
+        data: {
+          movedCount: result.changes
+        }
+      });
+    } catch (error) {
+      console.error('批量移动资源错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'BATCH_MOVE_RESOURCES_ERROR',
+          message: '批量移动资源失败'
         }
       });
     }

@@ -16,6 +16,7 @@ router.get('/stats', adminController.getStats);
 
 // 用户管理
 router.get('/users', adminController.getUsers);
+router.post('/users', adminController.createUser);
 router.put('/users/:id/status', adminController.updateUserStatus);
 router.put('/users/:id', adminController.updateUser);
 router.get('/users/:id/resources', adminController.getUserResources);

@@ -110,6 +110,7 @@ node src/database/init.js
 
 **路由架构**：
 - `/login` - 登录页（无需认证）
+- `/explore` - 资源中心（无需认证）
 - `/` - Dashboard布局（需要认证）
   - `/resources` - 资源列表
   - `/resources/create` - 创建资源
@@ -117,20 +118,29 @@ node src/database/init.js
   - `/folders` - 文件夹管理
   - `/templates` - 模板中心
   - `/help` - 帮助中心
+  - `/admin/*` - 管理员功能（需要管理员权限）
+    - `/admin/stats` - 数据看板
+    - `/admin/users` - 用户管理
+    - `/admin/resources` - 全站资源
+    - `/admin/logs` - 操作日志
 
 ### 数据库Schema
 **核心表结构**：
-- `users` - 用户表（手机号登录）
+- `users` - 用户表（手机号登录，含role字段区分admin/user）
 - `folders` - 文件夹表（支持层级结构，parent_id=0表示根目录）
 - `templates` - 模板表（包含预置HTML结构和CSS）
-- `resources` - 教学资源表（核心业务表）
+- `resources` - 教学资源表（核心业务表，含is_disabled禁用状态）
 - `resource_versions` - 版本历史表
 - `ai_generation_logs` - AI生成记录表
+- `resource_likes` - 点赞/点踩记录表
+- `admin_logs` - 管理员操作日志表
 
 **重要字段**：
+- `users.role` - 用户角色：'admin'（管理员）或 'user'（普通用户）
 - `resources.uuid` - 资源唯一标识，用于公开访问URL
 - `resources.template_id` - 可为NULL，表示不使用模板
 - `resources.status` - 'draft'（草稿）或 'published'（已发布）
+- `resources.is_disabled` - 0（正常）或 1（被管理员禁用）
 
 ### 公开资源访问
 - 路由：`GET /r/:uuid` (无需认证)
@@ -200,6 +210,7 @@ server: {
 - 文件夹接口：`/api/folders/*`
 - 模板接口：`/api/templates/*`
 - AI接口：`/api/ai/*`
+- 管理员接口：`/api/admin/*`（需要管理员权限）
 
 ### 3. 前端开发
 - 使用`<script setup>`语法糖
@@ -235,8 +246,10 @@ console.log(result.changes);         // 受影响的行数
 ### 5. 安全要求
 - 真实密钥、密码不得提交到仓库
 - 敏感配置使用`.env`文件
-- 所有API路由（除`/r/:uuid`和`/health`）都需要JWT认证
+- 所有API路由（除`/r/:uuid`、`/api/public/*`和`/health`）都需要JWT认证
 - 用户认证通过`auth.middleware.js`中间件验证
+- 管理员权限通过`admin.middleware.js`中间件验证（检查role字段）
+- 普通用户只能访问自己的数据，管理员可以访问所有数据
 
 ## 已知问题和注意事项
 
@@ -247,6 +260,7 @@ console.log(result.changes);         // 受影响的行数
 5. **版本控制**：每次保存资源时自动创建版本快照到`resource_versions`表
 6. **请求超时**：前端API请求超时设置为300秒（5分钟），专门适配AI长内容生成场景
 7. **数据库Schema更新**：如需更新表结构，需手动删除数据库文件后重新初始化（connection.js已注释掉自动重建逻辑）
+8. **管理员角色持久化**：后端启动时通过`init.js`自动将用户`13800138000`设置为管理员，确保角色正确保存
 
 ## 快速故障排查
 

@@ -126,5 +126,27 @@ export const resourceAPI = {
       url: `/resources/like-status?resourceIds=${resourceIds}`,
       method: 'get'
     })
+  },
+
+  /**
+   * 移动资源到指定文件夹
+   */
+  move(id, folderId) {
+    return request({
+      url: `/resources/${id}/move`,
+      method: 'patch',
+      data: { folderId }
+    })
+  },
+
+  /**
+   * 批量移动资源到指定文件夹
+   */
+  batchMove(resourceIds, folderId) {
+    return request({
+      url: '/resources/batch-move',
+      method: 'post',
+      data: { resourceIds, folderId }
+    })
   }
 }

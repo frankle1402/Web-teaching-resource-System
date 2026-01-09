@@ -10,6 +10,8 @@ router.get('/:id', authMiddleware, resourceController.getResourceById);
 router.post('/', authMiddleware, resourceController.createResource);
 router.put('/:id', authMiddleware, resourceController.updateResource);
 router.delete('/:id', authMiddleware, resourceController.deleteResource);
+router.patch('/:id/move', authMiddleware, resourceController.moveResource);
+router.post('/batch-move', authMiddleware, resourceController.batchMoveResources);
 router.get('/:id/versions', authMiddleware, resourceController.getResourceVersions);
 router.post('/:id/versions/:versionId/restore', authMiddleware, resourceController.restoreResourceVersion);
 router.post('/:id/publish', authMiddleware, resourceController.publishResource);
