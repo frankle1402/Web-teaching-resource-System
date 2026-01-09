@@ -79,10 +79,10 @@ node src/database/init.js
 **核心目录结构**：
 - `src/app.js` - 应用入口，路由配置
 - `src/database/connection.js` - 数据库连接管理（SQL.js封装）
-- `src/database/init.js` - 数据库初始化
+- `src/database/init.js` - 数据库初始化（自动设置管理员账号）
 - `src/controllers/` - 业务逻辑控制器
 - `src/routes/` - API路由定义
-- `src/middlewares/` - 中间件（认证、错误处理）
+- `src/middlewares/` - 中间件（认证、管理员权限、错误处理）
 
 **重要设计决策**：
 - 使用SQL.js而非原生sqlite3，避免编译问题
