@@ -11,7 +11,7 @@ class AdminController {
   async _logAction(db, adminId, action, targetType, targetId, details = null) {
     db.prepare(`
       INSERT INTO admin_logs (admin_id, action, target_type, target_id, details, created_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
+      VALUES (?, ?, ?, ?, ?, datetime('now', '+8 hours'))
     `).run([adminId, action, targetType, targetId, details ? JSON.stringify(details) : null]);
     saveDatabase();
   }
@@ -375,7 +375,7 @@ class AdminController {
       // 插入新用户
       const result = db.prepare(`
         INSERT INTO users (openid, phone, real_name, nickname, organization, avatar_url, role, profile_completed, created_at, last_login)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now', '+8 hours'), datetime('now', '+8 hours'))
       `).run([openid, phone, real_name, nickname || real_name, organization, avatar_url || null, role || 'user']);
 
       saveDatabase();
@@ -684,7 +684,7 @@ class AdminController {
         // 禁用资源
         db.prepare(`
           UPDATE resources
-          SET is_disabled = 1, disabled_at = datetime('now'), disabled_by = ?, disabled_reason = ?
+          SET is_disabled = 1, disabled_at = datetime('now', '+8 hours'), disabled_by = ?, disabled_reason = ?
           WHERE id = ?
         `).run([req.user.id, reason || '', id]);
 
@@ -767,7 +767,7 @@ class AdminController {
       // 更新状态为草稿
       db.prepare(`
         UPDATE resources
-        SET status = 'draft', updated_at = datetime('now')
+        SET status = 'draft', updated_at = datetime('now', '+8 hours')
         WHERE id = ?
       `).run([id]);
 

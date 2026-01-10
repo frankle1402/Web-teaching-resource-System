@@ -1,9 +1,18 @@
 <template>
   <div
     class="resource-card"
-    :class="{ selected }"
+    :class="{ selected, highlighted }"
     @click="$emit('click', resource)"
   >
+    <!-- 颗粒效果容器 -->
+    <div v-if="highlighted" class="sparkle-container">
+      <div class="sparkle"></div>
+      <div class="sparkle"></div>
+      <div class="sparkle"></div>
+      <div class="sparkle"></div>
+      <div class="sparkle"></div>
+    </div>
+
     <el-checkbox
       :model-value="selected"
       @change="$emit('select', resource.id, $event)"
@@ -89,6 +98,10 @@ const props = defineProps({
     required: true
   },
   selected: {
+    type: Boolean,
+    default: false
+  },
+  highlighted: {
     type: Boolean,
     default: false
   }
@@ -305,6 +318,125 @@ const formatDate = (dateStr) => {
 .card-actions {
   display: flex;
   align-items: center;
+}
+
+/* 高亮动画样式 */
+.resource-card.highlighted {
+  position: relative;
+  z-index: 1;
+  animation: cardPulse 3s ease-out forwards;
+}
+
+.resource-card.highlighted::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 10px;
+  background: linear-gradient(45deg,
+    #3b82f6, #8b5cf6, #ec4899, #f59e0b,
+    #3b82f6, #8b5cf6, #ec4899, #f59e0b);
+  background-size: 400% 400%;
+  z-index: -1;
+  animation: laserBorder 2s linear infinite;
+  filter: blur(8px);
+  opacity: 0.8;
+}
+
+.resource-card.highlighted::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9px;
+  background: linear-gradient(45deg,
+    #3b82f6, #8b5cf6, #ec4899, #f59e0b,
+    #3b82f6, #8b5cf6, #ec4899, #f59e0b);
+  background-size: 400% 400%;
+  z-index: -1;
+  animation: laserBorder 1.5s linear infinite;
+}
+
+/* 颗粒/星光效果容器 */
+.resource-card .sparkle-container {
+  position: absolute;
+  inset: -10px;
+  pointer-events: none;
+  overflow: visible;
+  z-index: -1;
+}
+
+.resource-card .sparkle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: white;
+  border-radius: 50%;
+  animation: sparkleFloat 1.5s ease-in-out infinite;
+  box-shadow: 0 0 6px 2px rgba(59, 130, 246, 0.8),
+              0 0 12px 4px rgba(139, 92, 246, 0.6);
+}
+
+/* 5个颗粒围绕卡片旋转 */
+.resource-card .sparkle:nth-child(1) {
+  --tx: -60px; --ty: -40px; --tx2: -30px; --ty2: -20px;
+  top: 20%; left: 10%;
+  animation-delay: 0s;
+}
+
+.resource-card .sparkle:nth-child(2) {
+  --tx: 60px; --ty: -40px; --tx2: 30px; --ty2: -20px;
+  top: 20%; right: 10%;
+  animation-delay: 0.3s;
+}
+
+.resource-card .sparkle:nth-child(3) {
+  --tx: 60px; --ty: 40px; --tx2: 30px; --ty2: 20px;
+  bottom: 20%; right: 10%;
+  animation-delay: 0.6s;
+}
+
+.resource-card .sparkle:nth-child(4) {
+  --tx: -60px; --ty: 40px; --tx2: -30px; --ty2: 20px;
+  bottom: 20%; left: 10%;
+  animation-delay: 0.9s;
+}
+
+.resource-card .sparkle:nth-child(5) {
+  --tx: 0; --ty: -70px; --tx2: 0; --ty2: -35px;
+  top: -10px; left: 50%;
+  animation-delay: 0.45s;
+}
+
+@keyframes laserBorder {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes sparkleFloat {
+  0% {
+    transform: translate(0, 0) scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(var(--tx), var(--ty)) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx2), var(--ty2)) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes cardPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px 10px rgba(59, 130, 246, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
 }
 
 /* 删除菜单项红色样式 */

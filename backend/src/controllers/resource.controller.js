@@ -223,7 +223,7 @@ class ResourceController {
           uuid, user_id, title, course_name, course_level,
           major, subject, prompt_text, content_html, template_id, folder_id,
           status, public_url, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+8 hours'), datetime('now', '+8 hours'))
       `).run([
         uuid, userId, title, courseName, courseLevel,
         major, title, additionalRequirements || '', contentHtml || '',
@@ -243,7 +243,7 @@ class ResourceController {
       if (contentHtml) {
         db.prepare(`
           INSERT INTO resource_versions (resource_id, content_html, version_number, change_description, created_at)
-          VALUES (?, ?, 1, '初始版本', datetime('now'))
+          VALUES (?, ?, 1, '初始版本', datetime('now', '+8 hours'))
         `).run([resource.id, contentHtml]);
         saveDatabase();
       }
@@ -329,7 +329,7 @@ class ResourceController {
 
         db.prepare(`
           INSERT INTO resource_versions (resource_id, content_html, version_number, change_description, created_at)
-          VALUES (?, ?, ?, '自动保存', datetime('now'))
+          VALUES (?, ?, ?, '自动保存', datetime('now', '+8 hours'))
         `).run([id, contentHtml, versionCount + 1]);
       }
 
@@ -356,7 +356,7 @@ class ResourceController {
             folder_id = COALESCE(?, folder_id),
             status = ?,
             public_url = ?,
-            updated_at = datetime('now')
+            updated_at = datetime('now', '+8 hours')
         WHERE id = ? ${!isAdmin ? 'AND user_id = ?' : ''}
       `).run([
         title, courseName, courseLevel, major, title, additionalRequirements || '',
@@ -543,7 +543,7 @@ class ResourceController {
       // 更新资源内容
       db.prepare(`
         UPDATE resources
-        SET content_html = ?, updated_at = datetime('now')
+        SET content_html = ?, updated_at = datetime('now', '+8 hours')
         WHERE id = ?
       `).run([version.content_html, id]);
 
@@ -663,7 +663,7 @@ class ResourceController {
         SET status = 'published',
             uuid = ?,
             public_url = ?,
-            updated_at = datetime('now')
+            updated_at = datetime('now', '+8 hours')
         WHERE id = ?
       `).run([resource.uuid, publicUrl, id]);
 
@@ -725,7 +725,7 @@ class ResourceController {
       // 更新状态为草稿��保留 public_url 但用户无法访问
       db.prepare(`
         UPDATE resources
-        SET status = 'draft', updated_at = datetime('now')
+        SET status = 'draft', updated_at = datetime('now', '+8 hours')
         WHERE id = ?
       `).run([id]);
 
@@ -762,19 +762,169 @@ class ResourceController {
       const db = await getDB();
 
       const resource = db.prepare(`
-        SELECT title, course_name, course_level, major, subject, content_html, is_disabled
-        FROM resources
-        WHERE uuid = ? AND status = 'published'
+        SELECT r.title, r.course_name, r.course_level, r.major, r.subject, r.content_html, r.is_disabled, r.user_id
+        FROM resources r
+        WHERE r.uuid = ? AND r.status = 'published'
       `).get([uuid]);
 
       if (!resource) {
-        return res.status(404).json({
-          success: false,
-          error: {
-            code: 'RESOURCE_NOT_FOUND',
-            message: '资源不存在或未发布'
-          }
-        });
+        // 资源不存在或未发布，查询作者信息
+        const authorInfo = db.prepare(`
+          SELECT r.user_id, u.nickname
+          FROM resources r
+          LEFT JOIN users u ON r.user_id = u.id
+          WHERE r.uuid = ?
+        `).get([uuid]);
+
+        const authorNickname = authorInfo?.nickname || '未知作者';
+        const baseUrl = process.env.BASE_URL || 'http://localhost:8080';
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+        // 返回美观的下架提示页面
+        return res.status(404).send(`
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>资源已下架 - 教学资源平台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 500px;
+      width: 100%;
+      padding: 48px 40px;
+      text-align: center;
+    }
+    .icon {
+      width: 80px;
+      height: 80px;
+      background: #fef3c7;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 40px;
+    }
+    h1 {
+      color: #1e293b;
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+    .message {
+      color: #64748b;
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .author-info {
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 32px;
+    }
+    .author-label {
+      color: #94a3b8;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .author-name {
+      color: #1e293b;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .divider {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 24px 0;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.3s;
+    }
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #2563eb;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+    .btn-outline {
+      background: white;
+      color: #3b82f6;
+      border: 2px solid #3b82f6;
+    }
+    .btn-outline:hover {
+      background: #eff6ff;
+    }
+    .footer {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .footer-logo {
+      font-size: 14px;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+    .footer-logo strong {
+      color: #3b82f6;
+    }
+    .footer-text {
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">📦</div>
+    <h1>资源已下架</h1>
+    <p class="message">
+      该教学资源已被作者下架，暂时无法访问。<br>
+      如有需要，请联系资源作者。
+    </p>
+    <div class="author-info">
+      <div class="author-label">资源作者</div>
+      <div class="author-name">${authorNickname}</div>
+    </div>
+    <div class="actions">
+      <a href="${frontendUrl}/explore" class="btn btn-primary">浏览资源中心</a>
+      <a href="${frontendUrl}" class="btn btn-outline">返回首页</a>
+    </div>
+    <div class="footer">
+      <div class="footer-logo"><strong>教学资源平台</strong></div>
+      <div class="footer-text">面向医卫类教师的新一代教学资源生成平台</div>
+    </div>
+  </div>
+</body>
+</html>
+        `);
       }
 
       // 检查资源是否被管理员禁用
@@ -1158,7 +1308,7 @@ class ResourceController {
       }
 
       // 批量更新资源的文件夹
-      const result = db.prepare(`UPDATE resources SET folder_id = ?, updated_at = datetime('now') WHERE ${whereClause}`).run([folderId || null, ...params]);
+      const result = db.prepare(`UPDATE resources SET folder_id = ?, updated_at = datetime('now', '+8 hours') WHERE ${whereClause}`).run([folderId || null, ...params]);
 
       saveDatabase();
 

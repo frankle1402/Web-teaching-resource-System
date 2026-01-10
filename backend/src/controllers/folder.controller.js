@@ -133,7 +133,7 @@ class FolderController {
 
       const result = db.prepare(`
         INSERT INTO folders (user_id, name, parent_id, created_at)
-        VALUES (?, ?, ?, datetime('now'))
+        VALUES (?, ?, ?, datetime('now', '+8 hours'))
       `).run([userId, name.trim(), parentId || null]);
 
       // 保存数据库

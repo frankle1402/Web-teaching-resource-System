@@ -1,4 +1,5 @@
 const axios = require('axios');
+const debugLogger = require('../utils/debugLogger');
 
 /**
  * AI生成控制器（使用302.ai）
@@ -9,7 +10,7 @@ class AIController {
    */
   async generateOutline(req, res) {
     try {
-      const { courseName, courseLevel, major, subject } = req.body;
+      const { courseName, courseLevel, major, subject, teachingMethod, contentDirections } = req.body;
 
       // 验证必填字段
       if (!courseName || !courseLevel || !major) {
@@ -22,62 +23,189 @@ class AIController {
         });
       }
 
-      // 构建Prompt - 升级版（增加交互设计和微测验规划）
-      const prompt = `作为一名专业的${major}教师，请为以下课程设计一个详细的教学大纲，包含交互设计和考核点规划：
+      // 构建教学法指引
+      let methodGuide = '';
+      if (teachingMethod && teachingMethod !== 'auto') {
+        const methodGuides = {
+          'cbl': `【教学法要求：CBL案例教学法】
+请按照CBL案例教学法设计大纲结构：
+1. 案例导入（真实临床情境，患者主诉、病史、体征）
+2. 问题提出（引导学生思考可能的诊断）
+3. 知识讲解（相关疾病的病因、机制、鉴别诊断）
+4. 【考核点】诊断推理题
+5. 处理方案（治疗原则、护理要点）
+6. 案例延伸（并发症预防、健康教育）
+7. 【自测】情境分析题`,
+          'skill': `【教学法要求：操作技能四步法】
+请按照操作技能教学法设计大纲结构：
+1. 操作目的与意义（为什么要掌握这项操作）
+2. 用物准备（器材清单、环境要求）
+3. 操作步骤详解（分步骤说明，关键点和注意事项）
+4. 【考核点】步骤排序题
+5. 操作要点与常见错误（易错点警示）
+6. 【考核点】错误识别题
+7. 并发症预防与处理
+8. 【自测】操作规范题`,
+          'pbl': `【教学法要求：PBL问题导向法】
+请按照PBL问题导向教学法设计大纲结构：
+1. 问题情境（复杂临床问题呈现）
+2. 问题分解（将大问题拆解为子问题）
+3. 【考核点】问题识别题
+4. 知识探索（相关知识点讲解，多学科知识整合）
+5. 方案制定（解决问题的思路和方法）
+6. 【考核点】方案评价题
+7. 反思总结（知识框架构建）
+8. 【自测】���合应用题`,
+          'flipped': `【教学法要求：翻转课堂教学法】
+请按照翻转课堂教学法设计大纲结构：
+【课前自学部分】
+1. 学习目标（本节课需要掌握的内容）
+2. 核心概念（基础知识点讲解）
+3. 【考核点】概念理解题
+4. 重点难点（深入讲解）
+5. 预习自测（3道基础题）
+【课堂讨论部分】
+6. 讨论问题（课堂需要讨论的问题清单）
+7. 拓展思考（进阶问题）
+8. 【自测】应用题`,
+          'ebp': `【教学法要求：循证护理/医学教学法】
+请按照循证护理/医学教学法设计大纲结构：
+1. 临床问题（PICO格式问题构建）
+2. 证据检索（如何查找最佳证据）
+3. 【考核点】证据分级题
+4. 证据评价（研究质量评价方法）
+5. 证据应用（如何将证据应用于实践）
+6. 【考核点】决策分析题
+7. 效果评价（实践效果的评估方法）
+8. 【自测】循证实践题`
+        };
+        methodGuide = methodGuides[teachingMethod] || '';
+      }
 
-课程名称：${courseName}
-教学层次：${courseLevel}
-专业：${major}
-${subject ? `学科：${subject}` : ''}
+      // 构建内容方向指引
+      let directionGuide = '';
+      if (contentDirections && contentDirections.length > 0) {
+        const directionMap = {
+          'operation': '强调操作步骤演示',
+          'theory': '强调理论知识讲解',
+          'case': '增加临床案例分析',
+          'media': '增加视频/图片占位',
+          'flipped': '适合翻转课堂',
+          'self-study': '适合课后自学'
+        };
+        const directions = contentDirections.map(d => directionMap[d] || d).filter(Boolean);
+        if (directions.length > 0) {
+          directionGuide = `\n【内容方向要求】\n${directions.map((d, i) => `${i + 1}. ${d}`).join('\n')}`;
+        }
+      }
 
-要求：
-1. 大纲要包含3-6个章节
-2. 每个章节包含2-4个小节
-3. 内容要符合${courseLevel}学生的认知水平
-4. 突出实践性和应用性
-5. 符合${major}专业培养目标
-6. **交互设计要求**：为每个小节规划至少1个交互考核点（关键点问答/单题测验/判断题）
-7. **图片占位策略**：标注需要配图的小节（流程图/要点图/对比图等）
-8. **结尾自测**：规划5题单选自测题（覆盖整个课程重点）
+      // 构建Prompt - 升级版（适配大纲编辑器新数据结构）
+      const prompt = `作为一名专业的${major}教师，请为以下课程设计一个详细的教学大纲。
+
+【课程信息】
+- 课程名称：${courseName}
+- 教学层次：${courseLevel}
+- 专业：${major}
+${subject ? `- 教学主题：${subject}` : ''}
+
+${methodGuide}
+${directionGuide}
+
+【设计要求】
+1. 大纲要包含4-6个章节（sections）
+2. 内容要符合${courseLevel}学生的认知水平
+3. 突出实践性和应用性
+4. 符合${major}专业培养目标
+5. 整体时长控制在90分钟（两节课）左右
+6. 学习目标要符合布鲁姆目标分类法，使用"能够..."、"掌握..."、"理解..."等动词
+${methodGuide ? '7. 严格按照上述教学法要求的章节结构设计大纲' : ''}
+
+【重要约束 - 枚举值必须严格匹配】
+- mediaType 只能是以下值之一: "none", "image", "video"
+- quizType 只能是以下值之一: "choice", "order", "judge", "case"
+- questionType 只能是以下值之一: "choice", "multiple", "judge"
+- hasQuiz 是布尔值: true 或 false（不要全部设为true，根据内容重要性选择性设置）
 
 请以JSON格式返回，格式如下：
 {
-  "title": "课程标题",
-  "chapters": [
+  "title": "教学主题",
+  "summary": "内容概述（50字以内）",
+  "keywords": ["关键字1", "关键字2", "关键字3"],
+  "learningObjectives": [
+    "能够理解...",
+    "能够掌握...",
+    "能够应用..."
+  ],
+  "sections": [
     {
+      "id": "section-1",
       "title": "章节标题",
-      "sections": [
-        {
-          "title": "小节标题",
-          "duration": "课时数",
-          "interaction": {
-            "type": "关键点问答/单选题/判断题",
-            "description": "交互点描述",
-            "keyPoint": "考核的知识点"
-          },
-          "needImage": true/false,
-          "imageType": "流程图/要点图/对比图（如果needImage为true）"
-        }
-      ]
+      "type": "content",
+      "description": "章节内容概要（1-2句话）",
+      "duration": 15,
+      "mediaType": "none",
+      "hasQuiz": false,
+      "quizType": "choice"
+    },
+    {
+      "id": "section-2",
+      "title": "重点章节标题",
+      "type": "content",
+      "description": "章节内容概要",
+      "duration": 20,
+      "mediaType": "image",
+      "hasQuiz": true,
+      "quizType": "choice"
     }
   ],
-  "finalQuiz": [
+  "finalQuizTopics": [
     {
-      "question": "题目",
-      "options": ["A选项", "B选项", "C选项", "D选项"],
-      "answer": "A",
-      "explanation": "解析"
+      "topic": "知识点名称1",
+      "questionType": "choice",
+      "questionCount": 2,
+      "randomOrder": true
+    },
+    {
+      "topic": "知识点名称2",
+      "questionType": "judge",
+      "questionCount": 1,
+      "randomOrder": true
     }
   ]
 }
 
-只返回JSON，不要其他内容。`;
+【注意事项】
+1. sections数量控制在4-6个
+2. 每个section的duration是分钟数（数字），总和约90分钟
+3. hasQuiz不要全部设为true，只在核心知识点后设置考核
+4. mediaType: "none"表示无媒体，"image"表示需要图片，"video"表示需要视频
+5. quizType: "choice"单选题，"order"排序题，"judge"判断题，"case"案例分析
+6. finalQuizTopics的questionType: "choice"单选，"multiple"多选，"judge"判断
+7. 每个知识点的questionCount在1-5之间
+8. keywords最多5个，只包含中文、英文或数字
+9. 只返回JSON，不要其他内容`;
 
       console.log('✓ 调用AI生成大纲（含交互设计）...');
       console.log('课程:', courseName, '层次:', courseLevel, '专业:', major);
+      console.log('教学法:', teachingMethod || 'auto', '内容方向:', contentDirections || []);
 
       // 调用302.ai API
-      const aiResponse = await this.callAIAPI(prompt);
+      const requestStartTime = new Date().toISOString();
+      const aiResult = await this.callAIAPI(prompt);
+      const responseTime = new Date().toISOString();
+      const aiResponse = aiResult.content;
+
+      // 保存调试日志
+      await debugLogger.saveDebug({
+        userId: req.user?.id,
+        type: 'outline',
+        prompt,
+        response: aiResponse,
+        courseInfo: { courseName, subject, courseLevel, major },
+        usage: aiResult.usage,
+        requestStartTime,
+        responseTime
+      });
 
       // 解析AI返回的JSON
       let outlineData;
@@ -316,7 +444,22 @@ ${JSON.stringify(outline, null, 2)}
 - 教师信息使用占位符{{teacher_name}}`;
 
       console.log('✓ 调用AI生成内容（含交互设计）...');
-      const aiResponse = await this.callAIAPI(prompt);
+      const requestStartTime2 = new Date().toISOString();
+      const aiResult = await this.callAIAPI(prompt);
+      const responseTime2 = new Date().toISOString();
+      const aiResponse = aiResult.content;
+
+      // 保存调试日志
+      await debugLogger.saveDebug({
+        userId: req.user?.id,
+        type: 'content',
+        prompt,
+        response: aiResponse,
+        courseInfo,
+        usage: aiResult.usage,
+        requestStartTime: requestStartTime2,
+        responseTime: responseTime2
+      });
 
       // 清理AI返回的HTML
       let htmlContent = aiResponse.trim();
@@ -352,7 +495,7 @@ ${JSON.stringify(outline, null, 2)}
    */
   async generateSimpleContent(req, res) {
     try {
-      const { courseName, subject, courseLevel, major, additionalRequirements } = req.body;
+      const { courseName, subject, courseLevel, major, additionalRequirements, contentDirections, teachingMethod } = req.body;
 
       if (!courseName || !subject) {
         return res.status(400).json({
@@ -367,6 +510,91 @@ ${JSON.stringify(outline, null, 2)}
       console.log('✓ 调用AI生成简单内容（专业版）...');
       console.log('课程:', courseName, '主题:', subject, '层次:', courseLevel);
 
+      // 构建内容方向提示
+      let contentDirectionPrompt = '';
+      if (contentDirections && contentDirections.length > 0) {
+        const directionMap = {
+          'operation': '强调操作步骤演示，详细分解每个操作环节',
+          'theory': '强调理论知识讲解，深入阐述原理和机制',
+          'case': '增加临床案例分析，通过真实案例加深理解',
+          'media': '增加视频/图片占位，标注需要配图的位置',
+          'flipped': '适合翻转课堂，设计课前预习和课堂讨论环节',
+          'self-study': '适合课后自学，内容完整自洽，便于独立学习'
+        };
+        const directions = contentDirections.map(d => directionMap[d] || d).filter(Boolean);
+        if (directions.length > 0) {
+          contentDirectionPrompt = `\n【内容方向要求】\n${directions.map((d, i) => `${i + 1}. ${d}`).join('\n')}`;
+        }
+      }
+
+      // 构建教学法模板提示
+      let teachingMethodPrompt = '';
+      if (teachingMethod && teachingMethod !== 'auto') {
+        const methodTemplates = {
+          'cbl': `【教学法：CBL案例教学法】
+按以下结构组织内容：
+1. 案例导入：呈现真实临床情境（患者主诉、病史、体征）
+2. 问题提出：引导学生思考可能的诊断或处理方案
+3. 知识讲解：相关疾病的病因、机制、鉴别诊断
+4. 【考核点】诊断推理题或临床决策题
+5. 处理方案：治疗原则、护理要点
+6. 案例延伸：并发症预防、健康教育
+7. 【自测】5道情境分析题`,
+          'skill': `【教学法：操作技能四步教学法】
+按以下结构组织内容：
+1. 操作目的与意义：为什么要掌握这项操作？
+2. 用物准备：器材清单、环境要求（使用表格呈现）
+3. 操作步骤详解（核心）：
+   - 分步骤图文说明，每步标注序号
+   - 每步的关键点用【要点】标注
+   - 注意事项用⚠️警示标识
+   - 【考核点】步骤排序题
+4. 操作要点与常见错误：
+   - 易错点用红色边框警示
+   - 【考核点】错误识别题
+5. 并发症预防与处理
+6. 【自测】5道操作规范题`,
+          'pbl': `【教学法：PBL问题导向教学法】
+按以下结构组织内容：
+1. 问题情境：呈现复杂临床问题
+2. 问题分解：将大问题拆解为子问题
+   - 【考核点】问题识别题
+3. 知识探索：相关知识点讲解，多学科知识整合
+4. 方案制定：解决问题的思路和方法
+   - 【考核点】方案评价题
+5. 反思总结：知识框架构建
+6. 【自测】5道综合应用题`,
+          'flipped': `【教学法：翻转课堂教学法】
+按以下结构组织内容：
+【课前自学部分】
+1. 学习目标：本节课需要掌握的内容（3-5条）
+2. 核心概念：基础知识点讲解
+   - 【考核点】概念理解题
+3. 重点难点：深入讲解
+4. 预习自测：3道基础题
+
+【课堂讨论提示】
+5. 讨论问题：课堂需要讨论的问题清单
+6. 拓展思考：进阶问题
+7. 【自测】5道应用题`,
+          'ebp': `【教学法：循证护理/医学教学法】
+按以下结构组织内容：
+1. 临床问题：PICO格式问题构建
+   - P(Patient)：患者特征
+   - I(Intervention)：干预措施
+   - C(Comparison)：对照措施
+   - O(Outcome)：结局指标
+2. 证据检索：如何查找最佳证据
+   - 【考核点】证据分级题
+3. 证据评价：研究质量评价方法
+4. 证据应用：如何将证据应用于实践
+   - 【考核点】决策分析题
+5. 效果评价：实践效果的评估方法
+6. 【自测】5道循证实践题`
+        };
+        teachingMethodPrompt = methodTemplates[teachingMethod] || '';
+      }
+
       // 构建专业化Prompt（整合完整设计规范）
       const prompt = `作为一名专业的${major || '医学'}教师，请为"${subject}"这个教学主题生成一个交互式HTML教学页面。
 
@@ -376,14 +604,33 @@ ${JSON.stringify(outline, null, 2)}
 - 专业：${major || '护理'}
 - 教学主题：${subject}
 ${additionalRequirements ? `- 其他要求：${additionalRequirements}` : ''}
+${contentDirectionPrompt}
+${teachingMethodPrompt}
+
+【医卫类专业特点要求】
+1. 操作步骤标准化呈现：
+   - 步骤编号清晰（第1步、第2步...）
+   - 关键点用【要点】或【关键】标注
+   - 警示信息用⚠️图标和红色边框强调
+2. 注意事项和禁忌症醒目标注：
+   - 使用Bootstrap的alert-danger组件
+   - 禁忌症单独列出，不可���漏
+3. 临床案例/情境嵌入：
+   - 每个核心概念配合实际案例说明
+   - 案例要贴近临床实际
+4. 安全警示视觉强调：
+   - 无菌操作、感染控制等内容特别标注
+   - 用药安全、剂量计算等内容加粗显示
 
 【UI设计系统（强制使用）】
-必须在<head>中引入Bootstrap 5（国内CDN）：
-- CSS: https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css
-- JS: https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js
+必须在<head>中引入Bootstrap 5.3.3（jsDelivr CDN）：
+- CSS: https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css
+- JS: https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js
 
-必须在<style>中定义CSS变量：
-:root {
+【样式隔离要求（重要）】
+所有内容必须包裹在 <div class="tr-resource-container"> 容器中，CSS变量定义在容器上：
+
+.tr-resource-container {
   --c-primary: #2563EB;
   --c-accent: #F97316;
   --c-success: #22C55E;
@@ -396,56 +643,92 @@ ${additionalRequirements ? `- 其他要求：${additionalRequirements}` : ''}
   --c-muted: rgba(255,255,255,0.70);
   --radius: 16px;
   --shadow: 0 10px 30px rgba(0,0,0,0.35);
+
+  font-family: "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  background: var(--c-bg);
+  color: var(--c-text);
+  line-height: 1.6;
+  min-height: 100vh;
 }
+
+所有CSS选择器必须以 .tr-resource-container 为前缀，例如：
+.tr-resource-container .content-card { ... }
+.tr-resource-container .btn-primary-custom { ... }
 
 【页面结构要求】
 1. 完整的HTML5页面，包含<!DOCTYPE html>
 2. 字符编码UTF-8，标题为"${subject} - ${courseName}"
-3. 使用统一字体：font-family: "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,Segoe UI,Roboto,Arial;
-4. 深色背景（var(--c-bg)），白色文字（var(--c-text)）
+3. body标签内第一个元素必须是 <div class="tr-resource-container">
+4. 所有内容都在这个容器内
 
 【内容组织】
-1. 导航栏（Bootstrap navbar）
+1. 导航栏（Bootstrap navbar，深色主题）
 2. 教师信息卡片：
    - 头像占位（圆形，80x80）
    - 教师名使用占位符：{{teacher_name}}
    - 显示"最后编辑者"
-   - 提示：可在HTML中替换为真实姓名和头像URL
 3. 主要内容区（使用Bootstrap container）：
    - h2标题显示"${subject}"
-   - 150-200字的教学内容介绍，包括：概念、重要性、关键要点
-   - 使用Bootstrap Card组件组织内容
+   - 学习目标（3-5条，使用有序列表）
+   - 核心内容讲解（300-500字），包括：
+     * 概念定义
+     * 重要性/临床意义
+     * 关键要点（使用Bootstrap Card组件）
    - 内容要符合${courseLevel || '高职'}学生的认知水平
-4. 交互考核点（强制，至少2个）：
+   - 知识点之间要有逻辑关系（概念→原理→应用）
+4. 交互考核点（强制，至少3个，分布在内容中）：
    - 使用Bootstrap Collapse实现关键点问答
    - 或使用Bootstrap Form + Alert实现单选题测验
-   - 每个交互点都要有解析/理由
+   - 每个交互点都要有详细解析（不只是"正确/错误"）
+   - 解析要有教学价值，帮助学生理解
 5. 结尾自测（5题单选，强制）：
    - 使用Bootstrap List group或Form
    - 点击选项显示对错反馈（Bootstrap Alert）
-   - 每题都有解析
-6. 图片占位（至少1个）：
-   - <img src="" alt="图片说明" class="img-fluid my-3">
+   - 每题都有解析，解析要说明为什么对/错
+6. 图片占位（至少2个）：
+   - <img src="" alt="图片说明" class="img-fluid my-3 rounded">
+   - 用注释标注图片用途（如：<!-- 此处放置操作流程图 -->）
 
 【交互实现】
 在<script>中实现：
-1. checkAnswer(btn, isCorrect) - 检查答案函数
+1. checkAnswer(btn, isCorrect, explanation) - 检查答案函数
 2. 使用Bootstrap的Alert组件显示反馈
-3. 不需要后端存储，纯前端交互
+3. 正确答案显示绿色alert-success，错误显示红色alert-danger
+4. 显示解析内容
+5. 不需要后端存储，纯前端交互
 
 【响应式设计】
 - 桌面：多列布局，卡片栅格
-- 手机：单列堆叠，Bootstrap的响应式类
+- 平板：两列布局
+- 手机：单列堆叠，Bootstrap的响应式类（col-12 col-md-6 col-lg-4）
 
 【重要】
 - 只返回完整的HTML代码，不要其他解释文字
-- 确保所有组件都来自Bootstrap 5
+- 确保所有组件都来自Bootstrap 5.3.3
 - 教师信息必须使用占位符{{teacher_name}}
-- 必须包含至少2个交互点 + 5题自测
-- 保持教育性和专业性`;
+- 必须包含至少3个交互点 + 5题自测
+- 所有样式必须在.tr-resource-container命名空间内
+- 保持教育性和专业性
+- 内容要有深度，不能太浅显`;
 
       // 调用AI API
-      const aiResponse = await this.callAIAPI(prompt);
+      const requestStartTime3 = new Date().toISOString();
+      const aiResult = await this.callAIAPI(prompt);
+      const responseTime3 = new Date().toISOString();
+      const aiResponse = aiResult.content;
+      const usage = aiResult.usage;
+
+      // 保存调试日志
+      await debugLogger.saveDebug({
+        userId: req.user?.id,
+        type: 'content',
+        prompt,
+        response: aiResponse,
+        courseInfo: { courseName, subject, courseLevel, major },
+        usage,
+        requestStartTime: requestStartTime3,
+        responseTime: responseTime3
+      });
 
       // 清理AI返回的HTML
       let htmlContent = aiResponse.trim();
@@ -466,30 +749,26 @@ ${additionalRequirements ? `- 其他要求：${additionalRequirements}` : ''}
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${subject} - ${courseName}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      font-size: 16px;
-      line-height: 1.6;
-      color: #333;
-      max-width: 800px;
-      margin: 40px auto;
+    .tr-resource-container {
+      --c-primary: #2563EB;
+      --c-bg: #0B1220;
+      --c-surface: #111A2E;
+      --c-text: rgba(255,255,255,0.92);
+      font-family: "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui;
+      background: var(--c-bg);
+      color: var(--c-text);
+      min-height: 100vh;
       padding: 20px;
-    }
-    h1, h2 {
-      color: #2c3e50;
-    }
-    h1 {
-      border-bottom: 3px solid #3498db;
-      padding-bottom: 10px;
-    }
-    ul, ol {
-      padding-left: 20px;
     }
   </style>
 </head>
 <body>
-  ${htmlContent}
+  <div class="tr-resource-container">
+    ${htmlContent}
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>`;
       }
@@ -516,6 +795,8 @@ ${additionalRequirements ? `- 其他要求：${additionalRequirements}` : ''}
 
   /**
    * 调用302.ai API
+   * @param {string} prompt - 提示词
+   * @returns {Promise<{content: string, usage: Object}>} 返回内容和token消耗
    */
   async callAIAPI(prompt) {
     const apiKey = process.env.AI_API_KEY;
@@ -533,7 +814,7 @@ ${additionalRequirements ? `- 其他要求：${additionalRequirements}` : ''}
               content: prompt
             }
           ],
-          max_tokens: 4000,
+          max_tokens: 16000,    // 显式设置，16K足够生成完整HTML内容
           temperature: 0.7
         },
         {
@@ -541,13 +822,16 @@ ${additionalRequirements ? `- 其他要求：${additionalRequirements}` : ''}
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: 300000 // 300秒超时（5分钟）
+          timeout: 600000 // 600秒超时（10分钟）
         }
       );
 
-      // 提取AI返回的内容
+      // 提取AI返回的内容和usage
       if (response.data && response.data.choices && response.data.choices[0]) {
-        return response.data.choices[0].message.content;
+        return {
+          content: response.data.choices[0].message.content,
+          usage: response.data.usage || null
+        };
       }
 
       throw new Error('AI返回格式错误');
@@ -563,30 +847,83 @@ ${additionalRequirements ? `- 其他要求：${additionalRequirements}` : ''}
   generateDefaultOutline(courseName, courseLevel, major) {
     return {
       title: courseName,
-      chapters: [
+      summary: `${courseName}的基础教学内容`,
+      keywords: [major, courseLevel, '教学'],
+      learningObjectives: [
+        '能够理解本课程的基本概念',
+        '能够掌握核心知识点和技能',
+        '能够在实践中应用所学知识'
+      ],
+      sections: [
         {
-          title: '第一章 概述',
-          sections: [
-            { title: '课程简介', duration: 2 },
-            { title: '学习目标', duration: 1 },
-            { title: '考核方式', duration: 1 }
-          ]
+          id: 'section-1',
+          title: '课程概述',
+          type: 'content',
+          description: '介绍课程背景、学习目标和考核方式',
+          duration: 10,
+          mediaType: 'none',
+          hasQuiz: false,
+          quizType: 'choice'
         },
         {
-          title: '第二章 基础知识',
-          sections: [
-            { title: '基本概念', duration: 4 },
-            { title: '基本原理', duration: 4 },
-            { title: '常用方法', duration: 4 }
-          ]
+          id: 'section-2',
+          title: '基本概念',
+          type: 'content',
+          description: '讲解核心概念和基本原理',
+          duration: 20,
+          mediaType: 'image',
+          hasQuiz: true,
+          quizType: 'choice'
         },
         {
-          title: '第三章 实践应用',
-          sections: [
-            { title: '案例分析', duration: 4 },
-            { title: '实操训练', duration: 6 },
-            { title: '注意事项', duration: 2 }
-          ]
+          id: 'section-3',
+          title: '核心知识点',
+          type: 'content',
+          description: '深入讲解重点内容和关键技能',
+          duration: 25,
+          mediaType: 'image',
+          hasQuiz: true,
+          quizType: 'choice'
+        },
+        {
+          id: 'section-4',
+          title: '实践应用',
+          type: 'content',
+          description: '案例分析和实操训练',
+          duration: 25,
+          mediaType: 'none',
+          hasQuiz: true,
+          quizType: 'case'
+        },
+        {
+          id: 'section-5',
+          title: '总结回顾',
+          type: 'summary',
+          description: '要点回顾和注意事项',
+          duration: 10,
+          mediaType: 'none',
+          hasQuiz: false,
+          quizType: 'choice'
+        }
+      ],
+      finalQuizTopics: [
+        {
+          topic: '概念理解',
+          questionType: 'choice',
+          questionCount: 2,
+          randomOrder: true
+        },
+        {
+          topic: '原理应用',
+          questionType: 'choice',
+          questionCount: 2,
+          randomOrder: true
+        },
+        {
+          topic: '操作规范',
+          questionType: 'judge',
+          questionCount: 1,
+          randomOrder: true
         }
       ]
     };

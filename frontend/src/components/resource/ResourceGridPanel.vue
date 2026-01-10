@@ -101,6 +101,7 @@
           :key="resource.id"
           :resource="resource"
           :selected="selectedResources.includes(resource.id)"
+          :highlighted="highlightedResourceId === resource.id"
           @select="handleToggleSelect"
           @click="handlePreview"
           @visit="handleVisit"
@@ -248,6 +249,11 @@ const props = defineProps({
   filter: {
     type: Object,
     default: () => ({})
+  },
+  // 新创建的资源ID，用于高亮显示
+  newResourceId: {
+    type: Number,
+    default: null
   }
 })
 
@@ -262,6 +268,7 @@ const previewResource = ref(null)
 const moveDialogVisible = ref(false)
 const viewMode = ref('card') // 'card' | 'table'
 const tableRef = ref(null)
+const highlightedResourceId = ref(null) // 当前高亮的资源ID
 
 const pagination = reactive({
   page: 1,
@@ -453,20 +460,37 @@ const handleCopyUrl = async (resource) => {
 const handlePublish = async (resource) => {
   try {
     await resourceAPI.publish(resource.id)
-    ElMessage.success('发布成功')
+    await ElMessageBox.alert('资源发布成功！', '发布成功', { type: 'success' })
     loadResources()
     emit('updated')
   } catch (error) {
-    ElMessage.error(error.message || '发布失败')
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '发布失败')
+    }
   }
 }
 
 // 回收资源
 const handleUnpublish = async (resource) => {
   try {
-    await ElMessageBox.confirm('确定要将该资源回收为草稿吗？', '确认回收', { type: 'warning' })
+    await ElMessageBox.confirm(
+      `<p style="margin-bottom: 12px;">确定要将该资源回收为草稿吗？</p>
+       <p style="color: #e6a23c; font-size: 13px; line-height: 1.6;">
+         ⚠️ <strong>注意：</strong>回收后，该资源的访问链接将立即失效，其他人无法再通过链接访问此资源。
+       </p>
+       <p style="color: #67c23a; font-size: 13px; line-height: 1.6; margin-top: 8px;">
+         ✅ 重新发布后，资源地址保持不变，原链接将恢复访问。
+       </p>`,
+      '确认回收',
+      {
+        type: 'warning',
+        dangerouslyUseHTMLString: true,
+        confirmButtonText: '确认回收',
+        cancelButtonText: '取消'
+      }
+    )
     await resourceAPI.unpublish(resource.id)
-    ElMessage.success('已回收为草稿')
+    await ElMessageBox.alert('资源已回收为草稿', '回收成功', { type: 'success' })
     loadResources()
     emit('updated')
   } catch (error) {
@@ -663,7 +687,7 @@ const getLevelTagType = (level) => {
   return levelMap[level] || 'info'
 }
 
-// 监听文件夹变化
+// 监听文件��变化
 watch(() => props.folderId, () => {
   pagination.page = 1
   clearSelection()
@@ -675,6 +699,19 @@ watch(() => props.filter, () => {
   pagination.page = 1
   loadResources()
 }, { deep: true })
+
+// 监听新资源ID，触发高亮效果
+watch(() => props.newResourceId, async (id) => {
+  if (id) {
+    highlightedResourceId.value = id
+    // 刷新资源列表以确保新资源可见
+    await loadResources()
+    // 3秒后清除高亮
+    setTimeout(() => {
+      highlightedResourceId.value = null
+    }, 3000)
+  }
+}, { immediate: true })
 
 // 暴露方法
 defineExpose({

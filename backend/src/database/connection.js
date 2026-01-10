@@ -19,7 +19,7 @@ function runMigrations(db) {
           resource_id INTEGER NOT NULL,
           user_id INTEGER NOT NULL,
           like_type TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
           UNIQUE(resource_id, user_id)
         );
         CREATE INDEX IF NOT EXISTS idx_resource_likes_resource_id ON resource_likes(resource_id);
@@ -135,7 +135,7 @@ function runMigrations(db) {
           target_type TEXT NOT NULL,
           target_id INTEGER NOT NULL,
           details TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
           FOREIGN KEY (admin_id) REFERENCES users(id)
         );
         CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_id ON admin_logs(admin_id);

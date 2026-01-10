@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
     organization TEXT,                        -- 单位/机构
     role TEXT DEFAULT 'user',                 -- 用户角色：'admin'=管理员, 'user'=普通用户
     profile_completed INTEGER DEFAULT 0,      -- 是否完善资料：0=未完善，1=已完善
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_login DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+    last_login DATETIME DEFAULT (datetime('now', '+8 hours')),
     status INTEGER DEFAULT 1                  -- 账号状态：1=正常，0=禁用
 );
 
@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS folders (
     name TEXT NOT NULL,                       -- 文件夹名称
     parent_id INTEGER DEFAULT 0,              -- 父文件夹ID（0表示根目录）
     sort_order INTEGER DEFAULT 0,             -- 排序序号
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+    updated_at DATETIME DEFAULT (datetime('now', '+8 hours')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -56,8 +56,8 @@ CREATE TABLE IF NOT EXISTS templates (
     css_cdn_urls TEXT,                        -- CSS CDN地址（JSON数组字符串）
     is_system INTEGER DEFAULT 1,              -- 是否系统模板：1=系统，0=用户自定义
     status INTEGER DEFAULT 1,                 -- 状态：1=启用，0=禁用
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+    updated_at DATETIME DEFAULT (datetime('now', '+8 hours'))
 );
 
 -- 初始化默认模板
@@ -189,8 +189,8 @@ CREATE TABLE IF NOT EXISTS resources (
     disabled_reason TEXT,                     -- 禁用原因
 
     -- 时间戳
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+    updated_at DATETIME DEFAULT (datetime('now', '+8 hours')),
 
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL,
@@ -215,7 +215,7 @@ CREATE TABLE IF NOT EXISTS resource_versions (
     content_html TEXT NOT NULL,               -- 该版本的HTML内容
     outline TEXT,                             -- 该版本的大纲
     change_description TEXT,                  -- 变更说明（可选）
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
     FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
 );
 
@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS ai_generation_logs (
     token_count INTEGER DEFAULT 0,            -- 消耗token数
     status TEXT DEFAULT 'success',            -- 状态：success/failed
     error_message TEXT,                       -- 错误信息
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (resource_id) REFERENCES resources(id)
 );
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS resource_likes (
     resource_id INTEGER NOT NULL,             -- 资源ID
     user_id INTEGER NOT NULL,                 -- 用户ID
     like_type TEXT NOT NULL,                  -- 'like' 或 'dislike'
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
     UNIQUE(resource_id, user_id),             -- 每个用户对每个资源只能点赞或点踩一次
     FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -273,7 +273,7 @@ CREATE TABLE IF NOT EXISTS admin_logs (
     target_type TEXT NOT NULL,                -- 目标类型：user/resource
     target_id INTEGER NOT NULL,               -- 目标ID
     details TEXT,                             -- 操作详情(JSON格式)
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
     FOREIGN KEY (admin_id) REFERENCES users(id)
 );
 

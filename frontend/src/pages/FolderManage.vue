@@ -74,6 +74,7 @@
           :folder-name="selectedFolderName"
           :folder-tree="folderTree"
           :filter="filterConditions"
+          :new-resource-id="newResourceId"
           @updated="handleResourceUpdated"
         />
       </div>
@@ -83,20 +84,22 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { folderAPI } from '@/api/folder'
 import FolderTreePanel from '@/components/folder/FolderTreePanel.vue'
 import ResourceGridPanel from '@/components/resource/ResourceGridPanel.vue'
 
 const router = useRouter()
+const route = useRoute()
 const folderTreeRef = ref(null)
 const resourceGridRef = ref(null)
 
 const selectedFolderId = ref('all') // 默认选中"全部资源"
 const selectedFolderName = ref('全部资源')
 const folderTree = ref([])
+const newResourceId = ref(null) // 新创建的资源ID，用于高亮显示
 
 // 筛选表单
 const filterForm = ref({
@@ -173,6 +176,18 @@ const handleResetFilter = () => {
 const handleCreateResource = () => {
   router.push('/dashboard/resources/create')
 }
+
+// 监听路由参数，当有新资源ID时自动切换到"全部资源"并传递给子组件
+watch(() => route.query.newResourceId, (id) => {
+  if (id) {
+    newResourceId.value = parseInt(id)
+    // 自动切换到"全部资源"视图，确保新资源可见
+    selectedFolderId.value = 'all'
+    selectedFolderName.value = '全部资源'
+  } else {
+    newResourceId.value = null
+  }
+}, { immediate: true })
 
 // 初始化
 loadFolderTree()

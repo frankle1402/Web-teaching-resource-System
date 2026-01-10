@@ -11,6 +11,7 @@ const folderRoutes = require('./routes/folder.routes');
 const templateRoutes = require('./routes/template.routes');
 const aiRoutes = require('./routes/ai.routes');
 const adminRoutes = require('./routes/admin.routes');
+const uploadRoutes = require('./routes/upload.routes');
 const resourceController = require('./controllers/resource.controller');
 
 // 导入中间件
@@ -74,6 +75,7 @@ app.use('/api/folders', folderRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // 公开资源访问（无需认证）
 app.get('/r/:uuid', resourceController.getPublicResource);

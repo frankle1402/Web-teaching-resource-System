@@ -25,7 +25,7 @@ async function initAppDatabase() {
       const openid = uuidv4();
       db.prepare(`
         INSERT INTO users (openid, phone, role, created_at, last_login)
-        VALUES (?, ?, 'admin', datetime('now'), datetime('now'))
+        VALUES (?, ?, 'admin', datetime('now', '+8 hours'), datetime('now', '+8 hours'))
       `).run([openid, adminPhone]);
       console.log(`✓ 已创建管理员账号: ${adminPhone}`);
     }

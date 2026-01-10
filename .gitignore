@@ -26,6 +26,9 @@ build/
 backend/uploads/
 backend/public/resources/
 
+# 调试日志
+backend/debug/
+
 # 日志
 logs/
 *.log

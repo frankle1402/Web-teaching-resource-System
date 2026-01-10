@@ -52,7 +52,7 @@ class AuthController {
         const openid = uuidv4();
         const result = db.prepare(`
           INSERT INTO users (openid, phone, created_at, last_login)
-          VALUES (?, ?, datetime('now'), datetime('now'))
+          VALUES (?, ?, datetime('now', '+8 hours'), datetime('now', '+8 hours'))
         `).run([openid, phone]);
 
         user = db.prepare('SELECT * FROM users WHERE id = ?').get([result.lastInsertRowid]);
@@ -63,7 +63,7 @@ class AuthController {
         console.log(`✓ 新用户注册: ${phone}`);
       } else {
         // 更新最后登录时间
-        db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?").run([user.id]);
+        db.prepare("UPDATE users SET last_login = datetime('now', '+8 hours') WHERE id = ?").run([user.id]);
 
         // 保存数据库
         saveDatabase();
@@ -284,7 +284,7 @@ class AuthController {
         const openid = uuidv4();
         const result = db.prepare(`
           INSERT INTO users (openid, phone, created_at, last_login)
-          VALUES (?, ?, datetime('now'), datetime('now'))
+          VALUES (?, ?, datetime('now', '+8 hours'), datetime('now', '+8 hours'))
         `).run([openid, phone]);
 
         user = db.prepare('SELECT * FROM users WHERE id = ?').get([result.lastInsertRowid]);
@@ -293,7 +293,7 @@ class AuthController {
         console.log(`✓ 新用户注册: ${phone}`);
       } else {
         // 更新最后登录时间
-        db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?").run([user.id]);
+        db.prepare("UPDATE users SET last_login = datetime('now', '+8 hours') WHERE id = ?").run([user.id]);
         saveDatabase();
 
         console.log(`✓ 用户登录: ${phone}, 角色: ${user.role || 'user'}`);
