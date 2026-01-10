@@ -36,11 +36,11 @@
 
         <el-divider style="margin: 12px 20px; border-color: rgba(255,255,255,0.2)" />
 
-        <!-- 公开资源中心（不需要登录权限） -->
-        <el-menu-item index="/explore" @click="handleGoToExplore">
+        <!-- 公开资源中心（不需要登录权限，新窗口打开） -->
+        <div class="el-menu-item" @click="handleGoToExplore">
           <el-icon><Collection /></el-icon>
           <span>资源中心</span>
-        </el-menu-item>
+        </div>
 
         <!-- 管理员菜单 -->
         <template v-if="isAdmin">
