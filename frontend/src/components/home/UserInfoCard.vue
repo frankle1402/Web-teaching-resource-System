@@ -81,12 +81,13 @@ const userStats = ref({
 // 获取用户统计数据
 const fetchUserStats = async () => {
   try {
-    const [resources, folders] = await Promise.all([
-      resourceAPI.getList({ page: 1, pageSize: 1 }),
-      folderAPI.getList()
+    const [resources, foldersResponse] = await Promise.all([
+      resourceAPI.getList({ page: 1, pageSize: 1, myResources: true }),
+      folderAPI.getTree()
     ])
-    userStats.value.resourceCount = resources.total || 0
-    userStats.value.folderCount = folders.length || 0
+    userStats.value.resourceCount = resources.pagination?.total || 0
+    // 只统计顶级文件夹数量（tree数组的长度就是顶级文件夹数量）
+    userStats.value.folderCount = foldersResponse.tree?.length || 0
   } catch (error) {
     console.error('获取用户统计失败:', error)
   }

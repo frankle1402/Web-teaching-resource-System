@@ -102,6 +102,35 @@ class FolderController {
       const userId = req.user.id;
       const db = await getDB();
 
+      // 如果指定了父文件夹，检查层级限制（最多5层）
+      if (parentId) {
+        // 计算父文件夹所在层级
+        const folders = db.prepare('SELECT id, parent_id FROM folders WHERE user_id = ?').all([userId]);
+
+        const getDepth = (folderId) => {
+          let depth = 1;
+          let currentId = folderId;
+          while (currentId) {
+            const folder = folders.find(f => f.id === currentId);
+            if (!folder || !folder.parent_id) break;
+            depth++;
+            currentId = folder.parent_id;
+          }
+          return depth;
+        };
+
+        const parentDepth = getDepth(parseInt(parentId));
+        if (parentDepth >= 5) {
+          return res.status(400).json({
+            success: false,
+            error: {
+              code: 'MAX_DEPTH_EXCEEDED',
+              message: '文件夹最多支持5层嵌套，无法继续创建子文件夹'
+            }
+          });
+        }
+      }
+
       const result = db.prepare(`
         INSERT INTO folders (user_id, name, parent_id, created_at)
         VALUES (?, ?, ?, datetime('now'))

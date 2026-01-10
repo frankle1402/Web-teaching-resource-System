@@ -4,7 +4,7 @@
       <h3>我的文件夹</h3>
       <el-button size="small" @click="handleCreateRoot">
         <el-icon><Plus /></el-icon>
-        新建
+        新建一级文件夹
       </el-button>
     </div>
 
@@ -34,6 +34,7 @@
 
     <el-scrollbar class="tree-scrollbar">
       <el-tree
+        ref="treeRef"
         v-loading="loading"
         :data="folderTree"
         :props="{ children: 'children', label: 'name' }"
@@ -41,7 +42,10 @@
         :highlight-current="true"
         :current-node-key="selectedFolderId"
         :expand-on-click-node="false"
+        :default-expanded-keys="expandedKeys"
         @node-click="handleNodeClick"
+        @node-expand="handleNodeExpand"
+        @node-collapse="handleNodeCollapse"
       >
         <template #default="{ node, data }">
           <div class="tree-node">
@@ -50,8 +54,9 @@
             <span class="node-count">{{ data.resourceCount || 0 }}</span>
             <div class="node-actions" @click.stop>
               <el-dropdown trigger="click">
-                <el-button size="small" text>
-                  <el-icon><MoreFilled /></el-icon>
+                <el-button size="small" type="primary" text class="edit-btn">
+                  <el-icon><Edit /></el-icon>
+                  编辑
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -63,7 +68,6 @@
                     </el-dropdown-item>
                     <el-dropdown-item
                       @click="handleDelete(data)"
-                      :disabled="!data.canDelete"
                     >
                       <el-icon><Delete /></el-icon> 删除
                     </el-dropdown-item>
@@ -103,10 +107,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Plus, Folder, FolderOpened, Edit, Delete, MoreFilled, Files
+  Plus, Folder, FolderOpened, Edit, Delete, Files
 } from '@element-plus/icons-vue'
 import { folderAPI } from '@/api/folder'
 
@@ -120,6 +124,8 @@ const folderTree = ref([])
 const unclassifiedCount = ref(0)
 const selectedFolderId = ref('all') // 默认选中"全部资源"
 const currentFolder = ref(null)
+const treeRef = ref(null)
+const expandedKeys = ref([]) // 保存展开的节点ID
 
 const form = reactive({
   name: ''
@@ -174,8 +180,50 @@ const handleCreateRoot = () => {
   showCreateDialog()
 }
 
+// 计算文件夹深度
+const getFolderDepth = (folderId) => {
+  const flattenFolders = (tree, result = []) => {
+    tree.forEach(folder => {
+      result.push({ id: folder.id, parent_id: folder.parent_id })
+      if (folder.children?.length) {
+        flattenFolders(folder.children, result)
+      }
+    })
+    return result
+  }
+
+  const allFolders = flattenFolders(folderTree.value)
+  let depth = 1
+  let currentId = folderId
+
+  while (currentId) {
+    const folder = allFolders.find(f => f.id === currentId)
+    if (!folder || !folder.parent_id) break
+    depth++
+    currentId = folder.parent_id
+  }
+
+  return depth
+}
+
+// 检查文件夹是否有子文件夹
+const hasChildren = (folder) => {
+  return folder.children && folder.children.length > 0
+}
+
 // 创建子文件夹
 const handleCreateChild = (parent) => {
+  // 检查层级限制（最多5层）
+  const currentDepth = getFolderDepth(parent.id)
+  if (currentDepth >= 5) {
+    ElMessageBox.alert(
+      '文件夹最多支持5层嵌套，无法继续创建子文件夹。',
+      '无法创建',
+      { type: 'warning' }
+    )
+    return
+  }
+
   dialogMode.value = 'create'
   form.name = ''
   currentFolder.value = parent
@@ -192,8 +240,24 @@ const handleRename = (folder) => {
 
 // 删除
 const handleDelete = async (folder) => {
-  if (!folder.canDelete) {
-    ElMessage.warning('文件夹非空，无法删除')
+  // 检查是否可以删除（无子文件夹且无资源）
+  const folderHasChildren = hasChildren(folder)
+  const folderHasResources = folder.resourceCount > 0
+
+  if (folderHasChildren || folderHasResources) {
+    let reasons = []
+    if (folderHasChildren) {
+      reasons.push('包含子文件夹')
+    }
+    if (folderHasResources) {
+      reasons.push(`包含 ${folder.resourceCount} 个资源`)
+    }
+
+    ElMessageBox.alert(
+      `当前文件夹无法删除，原因：\n\n• ${reasons.join('\n• ')}\n\n请先将资源移动到其他文件夹或删除后再试。`,
+      '无法删除',
+      { type: 'warning' }
+    )
     return
   }
 
@@ -203,9 +267,46 @@ const handleDelete = async (folder) => {
       '确认删除',
       { type: 'warning' }
     )
+
+    // 保存父文件夹ID，删除后选中父文件夹
+    const parentId = folder.parent_id
+
     await folderAPI.delete(folder.id)
     ElMessage.success('删除成功')
-    loadFolders()
+
+    // 从展开列表中移除被删除的文件夹
+    const deleteIndex = expandedKeys.value.indexOf(folder.id)
+    if (deleteIndex > -1) {
+      expandedKeys.value.splice(deleteIndex, 1)
+    }
+
+    // 刷新文件夹树
+    await loadFolders()
+
+    // 删除后选中父文件夹（如果有），否则选中全部资源
+    if (parentId) {
+      // 查找父文件夹信息
+      const findFolder = (tree, id) => {
+        for (const f of tree) {
+          if (f.id === id) return f
+          if (f.children?.length) {
+            const found = findFolder(f.children, id)
+            if (found) return found
+          }
+        }
+        return null
+      }
+      const parentFolder = findFolder(folderTree.value, parentId)
+      if (parentFolder) {
+        selectedFolderId.value = parentId
+        emit('folder-selected', parentId, parentFolder.name)
+      } else {
+        handleSelectAllResources()
+      }
+    } else {
+      handleSelectAllResources()
+    }
+
     emit('folder-updated')
   } catch (error) {
     if (error !== 'cancel') {
@@ -224,11 +325,19 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     if (dialogMode.value === 'create') {
+      // 保存父文件夹ID，创建成功后自动展开
+      const parentId = currentFolder.value?.id
+
       await folderAPI.create({
         name: form.name.trim(),
-        parentId: currentFolder.value?.id || null
+        parentId: parentId || null
       })
       ElMessage.success('创建成功')
+
+      // 如果是创建子文件夹，将父文件夹添加到展开列表
+      if (parentId && !expandedKeys.value.includes(parentId)) {
+        expandedKeys.value.push(parentId)
+      }
     } else {
       await folderAPI.update(currentFolder.value.id, {
         name: form.name.trim()
@@ -255,6 +364,21 @@ const handleSelectAllResources = () => {
 const handleNodeClick = (data) => {
   selectedFolderId.value = data.id
   emit('folder-selected', data.id, data.name)
+}
+
+// 节点展开时记录
+const handleNodeExpand = (data) => {
+  if (!expandedKeys.value.includes(data.id)) {
+    expandedKeys.value.push(data.id)
+  }
+}
+
+// 节点折叠时移除记录
+const handleNodeCollapse = (data) => {
+  const index = expandedKeys.value.indexOf(data.id)
+  if (index > -1) {
+    expandedKeys.value.splice(index, 1)
+  }
 }
 
 // 点击未分类资源
@@ -400,5 +524,14 @@ onMounted(() => {
 
 .tree-node:hover .node-actions {
   opacity: 1;
+}
+
+.edit-btn {
+  font-size: 12px;
+  color: #3b82f6 !important;
+}
+
+.edit-btn:hover {
+  background: #eff6ff !important;
 }
 </style>

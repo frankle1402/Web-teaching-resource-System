@@ -41,9 +41,38 @@
 
       <div class="card-footer">
         <span class="update-time">{{ formatDate(resource.updated_at) }}</span>
-        <el-button type="primary" link size="small">
-          查看 <el-icon><ArrowRight /></el-icon>
-        </el-button>
+        <div class="card-actions" @click.stop>
+          <el-dropdown trigger="click" @command="handleCommand">
+            <el-button type="primary" size="small">
+              操作 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="edit">
+                  <el-icon><Edit /></el-icon> 编辑
+                </el-dropdown-item>
+                <el-dropdown-item command="move">
+                  <el-icon><FolderAdd /></el-icon> 移动
+                </el-dropdown-item>
+                <el-dropdown-item command="publish">
+                  <el-icon><Upload /></el-icon> 发布
+                </el-dropdown-item>
+                <el-dropdown-item command="visit">
+                  <el-icon><View /></el-icon> 访问
+                </el-dropdown-item>
+                <el-dropdown-item command="copy">
+                  <el-icon><CopyDocument /></el-icon> 复制地址
+                </el-dropdown-item>
+                <el-dropdown-item command="unpublish">
+                  <el-icon><Download /></el-icon> 回收
+                </el-dropdown-item>
+                <el-dropdown-item divided command="delete" class="danger-item">
+                  <el-icon><Delete /></el-icon> 删除
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </div>
     </div>
   </div>
@@ -51,7 +80,8 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Reading, School, ArrowRight } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Reading, School, ArrowDown, Edit, Upload, View, CopyDocument, Download, Delete, FolderAdd } from '@element-plus/icons-vue'
 
 const props = defineProps({
   resource: {
@@ -64,7 +94,61 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['click', 'select'])
+const emit = defineEmits([
+  'click', 'select',
+  'visit', 'copy-url', 'unpublish',
+  'publish', 'delete', 'edit', 'move'
+])
+
+// 处理下拉菜单命令
+const handleCommand = (command) => {
+  const isDraft = props.resource.status === 'draft'
+  const isPublished = props.resource.status === 'published'
+
+  switch (command) {
+    case 'edit':
+      emit('edit', props.resource)
+      break
+    case 'move':
+      emit('move', props.resource)
+      break
+    case 'publish':
+      if (isPublished) {
+        ElMessageBox.alert('该资源已发布，无需重复发布', '提示', { type: 'warning' })
+      } else {
+        emit('publish', props.resource)
+      }
+      break
+    case 'visit':
+      if (isDraft) {
+        ElMessageBox.alert('请先发布资源后再访问', '提示', { type: 'warning' })
+      } else {
+        emit('visit', props.resource)
+      }
+      break
+    case 'copy':
+      if (isDraft) {
+        ElMessageBox.alert('请先发布资源后再复制地址', '提示', { type: 'warning' })
+      } else {
+        emit('copy-url', props.resource)
+      }
+      break
+    case 'unpublish':
+      if (isDraft) {
+        ElMessageBox.alert('资源尚未发布，无需回收', '提示', { type: 'warning' })
+      } else {
+        emit('unpublish', props.resource)
+      }
+      break
+    case 'delete':
+      if (isPublished) {
+        ElMessageBox.alert('请先回收资源后再删除', '提示', { type: 'warning' })
+      } else {
+        emit('delete', props.resource)
+      }
+      break
+  }
+}
 
 const levelTagType = computed(() => {
   const levelMap = {
@@ -87,15 +171,21 @@ const formatDate = (dateStr) => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
   const now = new Date()
-  const diff = now - date
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
 
-  if (days === 0) return '今天'
-  if (days === 1) return '昨天'
-  if (days < 7) return `${days}天前`
-  if (days < 30) return `${Math.floor(days / 7)}周前`
+  // 计算日期差（只比较日期部分）
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const dayDiff = Math.floor((today - targetDay) / (1000 * 60 * 60 * 24))
 
-  return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+  // 格式化时间 HH:mm
+  const timeStr = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+  if (dayDiff === 0) return `今天 ${timeStr}`
+  if (dayDiff === 1) return `昨天 ${timeStr}`
+  if (dayDiff === 2) return `前天 ${timeStr}`
+
+  // 3天前及更早，显示完整日期时间
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')} ${timeStr}`
 }
 </script>
 
@@ -210,5 +300,20 @@ const formatDate = (dateStr) => {
 .update-time {
   font-size: 12px;
   color: #94a3b8;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+}
+
+/* 删除菜单项红色样式 */
+:deep(.danger-item) {
+  color: #f56c6c !important;
+}
+
+:deep(.danger-item:hover) {
+  background-color: #fef0f0 !important;
+  color: #f56c6c !important;
 }
 </style>

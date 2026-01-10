@@ -25,9 +25,12 @@ class ResourceController {
       const isAdmin = req.user.role === 'admin';
       const db = await getDB();
 
-      // 构建查询条件：管理员可查看所有资源，普通用户只能查看自己的
-      let whereConditions = isAdmin ? [] : ['user_id = ?'];
-      let params = isAdmin ? [] : [userId];
+      // 构建查询条件
+      // myResources=true 时，即使是管理员也只返���自己的资源
+      // 未指定 myResources 且用户是管理员时，返回所有资源（用于全站资源管理）
+      const myResourcesOnly = req.query.myResources === 'true';
+      let whereConditions = (isAdmin && !myResourcesOnly) ? [] : ['user_id = ?'];
+      let params = (isAdmin && !myResourcesOnly) ? [] : [userId];
 
       // folderId 特殊值处理
       // 'all' - 全部资源（不筛选文件夹）

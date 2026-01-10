@@ -41,7 +41,7 @@ const routes = [
       {
         path: 'resources',
         name: 'ResourceList',
-        component: () => import('@/pages/ResourceList.vue'),
+        component: () => import('@/pages/FolderManage.vue'),
         meta: { title: '我的资源' }
       },
       {
@@ -55,12 +55,6 @@ const routes = [
         name: 'EditResource',
         component: () => import('@/pages/CreateResource.vue'),
         meta: { title: '编辑资源' }
-      },
-      {
-        path: 'folders',
-        name: 'FolderManage',
-        component: () => import('@/pages/FolderManage.vue'),
-        meta: { title: '文件夹管理' }
       },
       {
         path: 'templates',

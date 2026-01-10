@@ -24,11 +24,6 @@
           <span>创建资源</span>
         </el-menu-item>
 
-        <el-menu-item index="/dashboard/folders">
-          <el-icon><Folder /></el-icon>
-          <span>文件夹管理</span>
-        </el-menu-item>
-
         <el-menu-item index="/dashboard/templates">
           <el-icon><Grid /></el-icon>
           <span>模板中心</span>
@@ -128,7 +123,6 @@ import {
   Reading,
   Document,
   Plus,
-  Folder,
   Grid,
   QuestionFilled,
   User,
