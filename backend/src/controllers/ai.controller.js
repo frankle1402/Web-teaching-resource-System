@@ -2,6 +2,103 @@ const axios = require('axios');
 const debugLogger = require('../utils/debugLogger');
 
 /**
+ * 后处理：替换B站视频占位符为实际嵌入代码
+ * @param {string} htmlContent - AI生成的HTML内容
+ * @param {Array} sections - 大纲章节数组（含 videoEmbedCode）
+ * @returns {string} - 替换后的HTML内容
+ */
+function processVideoPlaceholders(htmlContent, sections) {
+  if (!sections || !Array.isArray(sections)) return htmlContent;
+
+  let result = htmlContent;
+
+  for (const section of sections) {
+    if (section.mediaType === 'video' && section.videoEmbedCode) {
+      // 匹配占位符，支持多种格式
+      const placeholderPatterns = [
+        `<!-- BILIBILI_VIDEO_PLACEHOLDER:${section.id} -->`,
+        `<!-- BILIBILI_VIDEO:${section.id} -->`,
+        `<!--BILIBILI_VIDEO_PLACEHOLDER:${section.id}-->`,
+        `<!--BILIBILI_VIDEO:${section.id}-->`
+      ];
+
+      for (const placeholder of placeholderPatterns) {
+        if (result.includes(placeholder)) {
+          result = result.replace(placeholder, section.videoEmbedCode);
+          console.log(`✓ 已替换视频占位符: ${section.id}`);
+          break;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 后处理：替换图片占位符为实际图片
+ * @param {string} htmlContent - AI生成的HTML内容
+ * @param {Array} sections - 大纲章节数组（含 imageUrl）
+ * @returns {string} - 替换后的HTML内容
+ */
+function processImagePlaceholders(htmlContent, sections) {
+  if (!sections || !Array.isArray(sections)) return htmlContent;
+
+  let result = htmlContent;
+
+  for (const section of sections) {
+    if (section.mediaType === 'image' && section.imageUrl) {
+      // 匹配占位符，支持多种格式
+      const placeholderPatterns = [
+        `<!-- IMAGE_PLACEHOLDER:${section.id} -->`,
+        `<!--IMAGE_PLACEHOLDER:${section.id}-->`,
+        `<!-- IMAGE_PLACEHOLDER:${section.id}`,  // 部分匹配带描述的
+      ];
+
+      // 生成替换用的图片HTML（带放大功能）
+      const imageHtml = `
+<div class="section-image" style="margin: 20px 0; text-align: center;">
+  <img src="${section.imageUrl}"
+       alt="${section.title || '教学图片'}"
+       class="img-fluid zoomable-image"
+       style="max-width: 100%; border-radius: 12px; cursor: zoom-in;"
+       onclick="openLightbox(this.src, this.alt)">
+  <p style="color: var(--c-muted); font-size: 14px; margin-top: 8px;">
+    ${section.imageCaption || section.title || ''}
+  </p>
+</div>`;
+
+      // 替换占位符
+      for (const placeholder of placeholderPatterns) {
+        if (result.includes(placeholder)) {
+          // 如果是部分匹配，需要找到完整的注释并替换
+          if (placeholder.endsWith(':' + section.id)) {
+            const fullPattern = new RegExp(`<!-- IMAGE_PLACEHOLDER:${section.id}[^>]*-->`, 'g');
+            result = result.replace(fullPattern, imageHtml);
+          } else {
+            result = result.replace(placeholder, imageHtml);
+          }
+          console.log(`✓ 已替换图片占位符: ${section.id}`);
+          break;
+        }
+      }
+
+      // 同时替换带 data-image-id 的占位符div
+      const divPattern = new RegExp(
+        `<div class="image-placeholder"[^>]*data-image-id="${section.id}"[^>]*>[\\s\\S]*?</div>\\s*<!-- IMAGE_PLACEHOLDER:${section.id}[^>]*-->`,
+        'g'
+      );
+      if (divPattern.test(result)) {
+        result = result.replace(divPattern, imageHtml);
+        console.log(`✓ 已替换图片占位符div: ${section.id}`);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * AI生成控制器（使用302.ai）
  */
 class AIController {
@@ -495,7 +592,7 @@ ${JSON.stringify(outline, null, 2)}
    */
   async generateSimpleContent(req, res) {
     try {
-      const { courseName, subject, courseLevel, major, additionalRequirements, contentDirections, teachingMethod } = req.body;
+      const { courseName, subject, courseLevel, major, additionalRequirements, contentDirections, teachingMethod, sections } = req.body;
 
       if (!courseName || !subject) {
         return res.status(400).json({
@@ -655,6 +752,29 @@ ${teachingMethodPrompt}
 .tr-resource-container .content-card { ... }
 .tr-resource-container .btn-primary-custom { ... }
 
+【颜色对比度规范（强制遵守）】
+⚠️ 可访问性要求：所有文字必须与背景有足够对比度（WCAG AA标准）
+
+1. 深色背景（--c-bg, --c-surface）必须使用：
+   - 主文字：var(--c-text) 即 rgba(255,255,255,0.92) 或更亮
+   - 次级文字：var(--c-muted) 即 rgba(255,255,255,0.70) 或更亮
+   - 禁止使用：黑色、深灰色、深蓝色等深色文字
+
+2. 浅色背景（白色、浅灰）必须使用：
+   - 主文字：#1a1a1a 或更深
+   - 次级文字：#4a4a4a 或更深
+   - 禁止使用：白色、浅灰色等浅色文字
+
+3. 题目和选项特别规范（重要！）：
+   - 题目背景使用 var(--c-surface)（深色），文字必须用 var(--c-text)（浅色）
+   - 选项按钮/卡片：深色背景 + 浅色文字
+   - 选项文字颜色：必须是 rgba(255,255,255,0.92) 或 var(--c-text)
+   - 严禁：深色背景 + 深色文字的任何组合（这会导致文字不可见）
+
+4. 交互元素对比度：
+   - 按钮文字与按钮背景对比度 ≥ 4.5:1
+   - 链接颜色与背景对比度 ≥ 4.5:1
+
 【页面结构要求】
 1. 完整的HTML5页面，包含<!DOCTYPE html>
 2. 字符编码UTF-8，标题为"${subject} - ${courseName}"
@@ -685,9 +805,32 @@ ${teachingMethodPrompt}
    - 使用Bootstrap List group或Form
    - 点击选项显示对错反馈（Bootstrap Alert）
    - 每题都有解析，解析要说明为什么对/错
-6. 图片占位（至少2个）：
-   - <img src="" alt="图片说明" class="img-fluid my-3 rounded">
-   - 用注释标注图片用途（如：<!-- 此处放置操作流程图 -->）
+6. 图片占位符（至少2个，使用规范格式）：
+   图片占位符必须使用以下格式，方便系统后续替换：
+   <div class="image-placeholder" data-image-id="img-{序号}" style="
+     width: 100%; max-width: 600px; min-height: 300px;
+     background: linear-gradient(135deg, var(--c-surface) 0%, rgba(37,99,235,0.1) 100%);
+     border: 2px dashed var(--c-border); border-radius: var(--radius);
+     display: flex; align-items: center; justify-content: center; gap: 20px;
+     padding: 20px; margin: 20px auto;">
+     <div style="text-align: center;">
+       <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--c-muted)" stroke-width="1.5">
+         <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+         <path d="M21 15l-5-5L5 21"/>
+       </svg>
+     </div>
+     <div style="color: var(--c-muted); text-align: left;">
+       <div style="font-weight: 600; color: var(--c-text); margin-bottom: 8px;">{图片标题}</div>
+       <div style="font-size: 14px;">{图片描述}</div>
+     </div>
+   </div>
+   <!-- IMAGE_PLACEHOLDER:img-{序号} 描述:{图片描述} -->
+
+   占位符规则：
+   - data-image-id 格式：img-1, img-2, img-3...（或使用章节id如section-1）
+   - 每个资源至少包含2个图片占位符
+   - 占位符尺寸：宽度100%（最大600px），高度最小300px
+   - 必须包含HTML注释标签用于系统后处理
 
 【交互实现】
 在<script>中实现：
@@ -697,10 +840,147 @@ ${teachingMethodPrompt}
 4. 显示解析内容
 5. 不需要后端存储，纯前端交互
 
+【图片放大查看功能（强制）】
+所有图片必须支持点击放大全屏查看，需要在CSS和JS中实现：
+
+1. 在<style>中添加图片放大相关样式：
+.tr-resource-container .zoomable-image { cursor: zoom-in; transition: transform 0.2s; }
+.tr-resource-container .zoomable-image:hover { transform: scale(1.02); }
+.tr-resource-container .image-lightbox {
+  display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.95); z-index: 9999;
+  justify-content: center; align-items: center; padding: 20px;
+}
+.tr-resource-container .image-lightbox.active { display: flex; }
+.tr-resource-container .image-lightbox img { max-width: 95%; max-height: 95%; object-fit: contain; border-radius: 8px; }
+.tr-resource-container .lightbox-close {
+  position: fixed; top: 20px; right: 20px; width: 48px; height: 48px;
+  background: rgba(255,255,255,0.2); border: none; border-radius: 50%;
+  color: white; font-size: 28px; cursor: pointer; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+}
+.tr-resource-container .lightbox-close:hover { background: rgba(255,255,255,0.3); }
+
+2. 在HTML末尾（tr-resource-container内）添加灯箱结构：
+<div class="image-lightbox" id="imageLightbox">
+  <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+  <img src="" alt="放大图片" id="lightboxImage">
+</div>
+
+3. 在<script>中添加图片放大函数：
+function openLightbox(imgSrc, imgAlt) {
+  const lightbox = document.getElementById('imageLightbox');
+  const lightboxImg = document.getElementById('lightboxImage');
+  lightboxImg.src = imgSrc;
+  lightboxImg.alt = imgAlt || '放大图片';
+  lightbox.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('imageLightbox').classList.remove('active');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeLightbox(); });
+document.getElementById('imageLightbox')?.addEventListener('click', function(e) { if (e.target === this) closeLightbox(); });
+
+4. 所有图片使用方式：
+<img src="图片地址" alt="说明" class="img-fluid zoomable-image" onclick="openLightbox(this.src, this.alt)">
+
 【响应式设计】
 - 桌面：多列布局，卡片栅格
 - 平板：两列布局
 - 手机：单列堆叠，Bootstrap的响应式类（col-12 col-md-6 col-lg-4）
+
+【排序题实现规范（重要）】
+排序题必须使用上下移动按钮实现，不使用拖拽（移动端兼容性差）：
+
+1. 在<style>中添加排序题样式：
+.tr-resource-container .order-quiz { background: var(--c-surface); border-radius: var(--radius); padding: 24px; margin: 20px 0; }
+.tr-resource-container .order-item {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--c-border);
+  border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; transition: all 0.2s;
+}
+.tr-resource-container .order-item:hover { background: rgba(255,255,255,0.08); }
+.tr-resource-container .order-number {
+  width: 28px; height: 28px; background: var(--c-primary); color: white;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 14px; flex-shrink: 0;
+}
+.tr-resource-container .order-content { flex: 1; color: var(--c-text); }
+.tr-resource-container .order-buttons { display: flex; flex-direction: column; gap: 4px; }
+.tr-resource-container .order-btn {
+  width: 32px; height: 24px; background: rgba(255,255,255,0.1);
+  border: 1px solid var(--c-border); border-radius: 4px; color: var(--c-muted);
+  cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.tr-resource-container .order-btn:hover { background: var(--c-primary); color: white; border-color: var(--c-primary); }
+.tr-resource-container .order-item.correct { border-color: var(--c-success); background: rgba(34,197,94,0.1); }
+.tr-resource-container .order-item.incorrect { border-color: var(--c-danger); background: rgba(239,68,68,0.1); }
+
+2. HTML结构示例：
+<div class="order-quiz" data-correct-order="B,A,C,D">
+  <h5 style="color: var(--c-text); margin-bottom: 16px;">考核点：{题目标题}</h5>
+  <p style="color: var(--c-muted); margin-bottom: 16px;">请排列以下步骤的正确顺序：</p>
+  <div class="order-items">
+    <div class="order-item" data-id="A">
+      <span class="order-number">1</span>
+      <span class="order-content">{选项A内容}</span>
+      <div class="order-buttons">
+        <button class="order-btn" onclick="moveItem(this, -1)" title="上移">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+        </button>
+        <button class="order-btn" onclick="moveItem(this, 1)" title="下移">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
+    </div>
+    <!-- 更多选项... -->
+  </div>
+  <button class="btn btn-primary mt-3" onclick="checkOrder(this)">检查答案</button>
+  <div class="order-feedback" style="display: none;"></div>
+</div>
+
+3. 在<script>中添加排序题函数：
+function moveItem(btn, direction) {
+  const item = btn.closest('.order-item');
+  const container = item.parentElement;
+  const items = Array.from(container.children);
+  const index = items.indexOf(item);
+  if (direction === -1 && index > 0) container.insertBefore(item, items[index - 1]);
+  else if (direction === 1 && index < items.length - 1) container.insertBefore(items[index + 1], item);
+  updateOrderNumbers(container);
+}
+function updateOrderNumbers(container) {
+  container.querySelectorAll('.order-item').forEach((item, index) => {
+    item.querySelector('.order-number').textContent = index + 1;
+  });
+}
+function checkOrder(btn) {
+  const quiz = btn.closest('.order-quiz');
+  const correctOrder = quiz.dataset.correctOrder.split(',');
+  const items = quiz.querySelectorAll('.order-item');
+  const currentOrder = Array.from(items).map(item => item.dataset.id);
+  let allCorrect = true;
+  items.forEach((item, index) => {
+    const isCorrect = currentOrder[index] === correctOrder[index];
+    item.classList.remove('correct', 'incorrect');
+    item.classList.add(isCorrect ? 'correct' : 'incorrect');
+    if (!isCorrect) allCorrect = false;
+  });
+  const feedback = quiz.querySelector('.order-feedback');
+  feedback.style.display = 'block';
+  feedback.className = 'order-feedback alert mt-3 ' + (allCorrect ? 'alert-success' : 'alert-danger');
+  feedback.innerHTML = allCorrect ? '<strong>正确！</strong> 排序完全正确。' : '<strong>顺序有误</strong>，请检查标红的选项并重新排列。';
+}
+
+【B站视频占位符规则（重要）】
+当大纲章节中的 mediaType 为 "video" 时，不要直接生成视频嵌入代码，而是在该章节对应位置插入以下HTML注释占位符：
+<!-- BILIBILI_VIDEO_PLACEHOLDER:section-id -->
+
+其中 section-id 是该章节的id值（如section-1, section-2等）。
+系统会在后处理时将占位符替换为实际的B站视频播放器嵌入代码。
+占位符放置位置应该在章节标题下方、正文内容之前或之后的合适位置。
 
 【重要】
 - 只返回完整的HTML代码，不要其他解释文字
@@ -771,6 +1051,22 @@ ${teachingMethodPrompt}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>`;
+      }
+
+      // 后处理：替换B站视频占位符
+      if (sections && sections.length > 0) {
+        const beforeLength = htmlContent.length;
+        htmlContent = processVideoPlaceholders(htmlContent, sections);
+        if (htmlContent.length !== beforeLength) {
+          console.log('✓ B站视频占位符后处理完成');
+        }
+
+        // 后处理：替换图片占位符
+        const beforeImageLength = htmlContent.length;
+        htmlContent = processImagePlaceholders(htmlContent, sections);
+        if (htmlContent.length !== beforeImageLength) {
+          console.log('✓ 图片占位符后处理完成');
+        }
       }
 
       console.log('✓ 简单内容生成成功');

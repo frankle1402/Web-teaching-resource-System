@@ -31,6 +31,7 @@ export const authAPI = {
   /**
    * 验证码登录
    * @param {Object} data - { phone: string, code: string }
+   * @returns {Promise<{token?, user?, isNewUser, phone?}>}
    */
   loginWithCode(data) {
     return request({
@@ -41,8 +42,20 @@ export const authAPI = {
   },
 
   /**
+   * 新用户注册
+   * @param {Object} data - { phone, code, role, real_name, ... }
+   */
+  register(data) {
+    return request({
+      url: '/auth/register',
+      method: 'post',
+      data
+    })
+  },
+
+  /**
    * 完善用户资料
-   * @param {Object} data - { real_name, organization, nickname?, avatar_url? }
+   * @param {Object} data - { real_name, organization, nickname?, avatar_url?, ... }
    */
   completeProfile(data) {
     return request({

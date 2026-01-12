@@ -58,13 +58,40 @@
         </el-form-item>
 
         <el-form-item label="专业" prop="major">
-          <el-autocomplete
-            v-model="form.major"
-            :fetch-suggestions="queryMajors"
-            placeholder="输入关键字搜索专业，如：医学、护理"
-            clearable
-            style="width: 100%"
-          />
+          <div class="major-tags-container">
+            <div class="major-tags-list">
+              <el-tag
+                v-for="(majorItem, index) in form.major"
+                :key="index"
+                closable
+                @close="removeMajor(index)"
+                style="margin: 4px"
+              >
+                {{ majorItem }}
+              </el-tag>
+              <el-autocomplete
+                v-if="form.major.length < 5"
+                v-model="newMajorInput"
+                :fetch-suggestions="queryMajors"
+                placeholder="添加专业"
+                size="small"
+                style="width: 180px; margin: 4px"
+                @select="handleMajorSelect"
+                @keyup.enter="addMajor"
+                @blur="handleMajorBlur"
+              >
+                <template #append>
+                  <el-button @click="addMajor">
+                    <el-icon><Plus /></el-icon>
+                  </el-button>
+                </template>
+              </el-autocomplete>
+            </div>
+            <div class="form-tip">
+              最多选择 5 个专业，当前已选 {{ form.major.length }} 个
+              <span v-if="form.major.length >= 5" style="color: #e6a23c">（已达上限）</span>
+            </div>
+          </div>
         </el-form-item>
 
         <el-form-item label="其他要求">
@@ -357,7 +384,7 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { MagicStick, Upload, Document, EditPen, RefreshRight, Loading } from '@element-plus/icons-vue'
+import { MagicStick, Upload, Document, EditPen, RefreshRight, Loading, Plus } from '@element-plus/icons-vue'
 import { resourceAPI } from '@/api/resource'
 import { aiAPI } from '@/api/ai'
 import { uploadAPI } from '@/api/upload'
@@ -413,12 +440,15 @@ const outline = reactive({
 // 步骤控制
 const currentStep = ref(0)
 
+// 专业标签输入
+const newMajorInput = ref('')
+
 // 表单数据
 const form = reactive({
   subject: '',
   courseName: '',
   courseLevel: '',
-  major: '',
+  major: [],  // 改为数组，支持多专业
   additionalRequirements: '',
   contentDirections: [],
   teachingMethod: 'auto',
@@ -482,10 +512,72 @@ const queryCourseNames = (queryString, cb) => {
 
 // 专业自动完成
 const queryMajors = (queryString, cb) => {
+  // 过滤掉已选择的专业
+  const availableMajors = majorOptions.value.filter(item => !form.major.includes(item))
   const results = queryString
-    ? majorOptions.value.filter(item => item.toLowerCase().includes(queryString.toLowerCase()))
-    : majorOptions.value
+    ? availableMajors.filter(item => item.toLowerCase().includes(queryString.toLowerCase()))
+    : availableMajors
   cb(results.map(item => ({ value: item })))
+}
+
+// 添加专业
+const addMajor = () => {
+  if (form.major.length >= 5) {
+    ElMessage.warning('最多只能选择5个专业')
+    return
+  }
+
+  const major = newMajorInput.value.trim()
+  if (!major) return
+
+  // 检查重复
+  if (form.major.includes(major)) {
+    ElMessage.warning('该专业已添加')
+    newMajorInput.value = ''
+    return
+  }
+
+  form.major.push(major)
+  newMajorInput.value = ''
+
+  // 触发表单验证
+  formRef.value?.validateField('major')
+}
+
+// 从自动完成选择专业
+const handleMajorSelect = (item) => {
+  if (form.major.length >= 5) {
+    ElMessage.warning('最多只能选择5个专业')
+    newMajorInput.value = ''
+    return
+  }
+
+  const major = item.value
+  if (form.major.includes(major)) {
+    ElMessage.warning('该专业已添加')
+    newMajorInput.value = ''
+    return
+  }
+
+  form.major.push(major)
+  newMajorInput.value = ''
+
+  // 触发表单验证
+  formRef.value?.validateField('major')
+}
+
+// 专业输入框失焦时添加
+const handleMajorBlur = () => {
+  if (newMajorInput.value.trim()) {
+    addMajor()
+  }
+}
+
+// 删除专业
+const removeMajor = (index) => {
+  form.major.splice(index, 1)
+  // 触发表单验证
+  formRef.value?.validateField('major')
 }
 
 // 表单验证规则
@@ -493,7 +585,16 @@ const rules = {
   subject: [{ required: true, message: '请输入教学主题', trigger: 'blur' }],
   courseName: [{ required: true, message: '请输入课程名称', trigger: 'blur' }],
   courseLevel: [{ required: true, message: '请选择教学层次', trigger: 'change' }],
-  major: [{ required: true, message: '请输入专业', trigger: 'blur' }]
+  major: [{
+    validator: (rule, value, callback) => {
+      if (!value || value.length === 0) {
+        callback(new Error('请至少选择一个专业'))
+      } else {
+        callback()
+      }
+    },
+    trigger: 'change'
+  }]
 }
 
 // 步骤控制
@@ -581,12 +682,15 @@ const resetAllState = () => {
   // 重置步骤
   currentStep.value = 0
 
+  // 重置专业输入
+  newMajorInput.value = ''
+
   // 重置表单
   Object.assign(form, {
     subject: '',
     courseName: '',
     courseLevel: '',
-    major: '',
+    major: [],  // 改为空数组
     additionalRequirements: '',
     contentDirections: [],
     teachingMethod: 'auto',
@@ -840,7 +944,7 @@ const generateFromOutline = async () => {
   startCountdown()  // 开始倒计时
 
   try {
-    // 将大纲信息合并到请求中
+    // 将大纲信息合并到请求中，包含完整的sections数据用于视频占位符后处理
     const response = await aiAPI.generateSimpleContent({
       courseName: form.courseName,
       subject: outline.title || form.subject,
@@ -848,7 +952,7 @@ const generateFromOutline = async () => {
       major: form.major,
       additionalRequirements: `
 教学大纲：
-${outline.sections.map((s, i) => `${i + 1}. ${s.title}：${s.description || ''}${s.hasQuiz ? '（含考核点：' + s.quizType + '）' : ''}`).join('\n')}
+${outline.sections.map((s, i) => `${i + 1}. ${s.title}：${s.description || ''}${s.mediaType === 'video' ? '（含B站视频，章节ID：' + s.id + '）' : ''}${s.hasQuiz ? '（含考核点：' + s.quizType + '）' : ''}`).join('\n')}
 
 学习目标：
 ${outline.learningObjectives.join('\n')}
@@ -858,7 +962,8 @@ ${outline.learningObjectives.join('\n')}
 ${form.additionalRequirements || ''}
       `.trim(),
       contentDirections: form.contentDirections,
-      teachingMethod: form.teachingMethod
+      teachingMethod: form.teachingMethod,
+      sections: outline.sections  // 传递完整的sections数据，用于后处理替换视频占位符
     })
 
     if (response && response.content) {
@@ -989,12 +1094,19 @@ const loadResource = async () => {
     // 响应拦截器已经返回了 res.data
     const response = await resourceAPI.getById(resourceId.value)
 
+    // 处理 major 字段（后端返回的是数组）
+    let majorArray = response.major || []
+    // 兼容旧数据：如果是字符串则转为数组
+    if (typeof majorArray === 'string') {
+      majorArray = majorArray ? [majorArray] : []
+    }
+
     // 填充表单数据
     Object.assign(form, {
       subject: response.title || response.subject || '',
       courseName: response.course_name || '',
       courseLevel: response.course_level || '',
-      major: response.major || '',
+      major: majorArray,
       additionalRequirements: response.additional_requirements || '',
       contentHtml: response.content_html || ''
     })
@@ -1080,6 +1192,26 @@ onMounted(async () => {
   font-size: 12px;
   color: #909399;
   margin-top: 8px;
+}
+
+/* 专业标签样式 */
+.major-tags-container {
+  width: 100%;
+}
+
+.major-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 40px;
+  padding: 4px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.major-tags-list:focus-within {
+  border-color: #409eff;
 }
 
 .el-checkbox-group {

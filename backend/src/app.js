@@ -12,7 +12,11 @@ const templateRoutes = require('./routes/template.routes');
 const aiRoutes = require('./routes/ai.routes');
 const adminRoutes = require('./routes/admin.routes');
 const uploadRoutes = require('./routes/upload.routes');
+const viewRoutes = require('./routes/view.routes');
+const userRoutes = require('./routes/user.routes');
+const favoriteRoutes = require('./routes/favorite.routes');
 const resourceController = require('./controllers/resource.controller');
+const viewController = require('./controllers/view.controller');
 
 // 导入中间件
 const errorMiddleware = require('./middlewares/error.middleware');
@@ -76,9 +80,16 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/views', viewRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/favorites', favoriteRoutes);
+
+// 管理员浏览记录查询
+app.get('/api/admin/views', authMiddleware, require('./middlewares/role.middleware').requireAdmin, viewController.getAllViews);
 
 // 公开资源访问（无需认证）
 app.get('/r/:uuid', resourceController.getPublicResource);
+app.get('/r/:uuid/content', resourceController.getPublicResourceContent);
 
 // 404处理
 app.use((req, res) => {

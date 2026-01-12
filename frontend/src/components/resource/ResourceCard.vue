@@ -42,9 +42,19 @@
           <el-icon><Reading /></el-icon>
           <span>{{ resource.course_name }}</span>
         </div>
-        <div class="info-item" v-if="resource.major">
+        <div class="info-item major-item" v-if="majorList.length > 0">
           <el-icon><School /></el-icon>
-          <span>{{ resource.major }}</span>
+          <div class="major-tags">
+            <el-tag
+              v-for="(major, index) in majorList.slice(0, 2)"
+              :key="index"
+              size="small"
+              type="info"
+            >
+              {{ major }}
+            </el-tag>
+            <span v-if="majorList.length > 2" class="more-tag">+{{ majorList.length - 2 }}</span>
+          </div>
         </div>
       </div>
 
@@ -180,6 +190,32 @@ const statusClass = computed(() => {
   return props.resource.status === 'published' ? 'status-published' : 'status-draft'
 })
 
+// 解析专业字段（可能是JSON数组字符串或普通字符串）
+const majorList = computed(() => {
+  const major = props.resource.major
+  if (!major) return []
+
+  // 尝试解析JSON数组
+  if (typeof major === 'string') {
+    try {
+      const parsed = JSON.parse(major)
+      if (Array.isArray(parsed)) {
+        return parsed.filter(m => m && m.trim())
+      }
+    } catch {
+      // 不是JSON，当作普通字符串处理
+      return major.trim() ? [major.trim()] : []
+    }
+  }
+
+  // 如果已经是数组
+  if (Array.isArray(major)) {
+    return major.filter(m => m && m.trim())
+  }
+
+  return []
+})
+
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   const date = new Date(dateStr)
@@ -213,6 +249,9 @@ const formatDate = (dateStr) => {
   position: relative;
   display: flex;
   flex-direction: column;
+  height: 200px;
+  min-height: 200px;
+  max-height: 200px;
 }
 
 .resource-card:hover {
@@ -236,6 +275,7 @@ const formatDate = (dateStr) => {
   display: flex;
   flex-direction: column;
   flex: 1;
+  overflow: hidden;
 }
 
 .card-title-row {
@@ -286,6 +326,8 @@ const formatDate = (dateStr) => {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 8px;
+  flex: 1;
+  overflow: hidden;
 }
 
 .info-item {
@@ -294,11 +336,43 @@ const formatDate = (dateStr) => {
   gap: 6px;
   font-size: 13px;
   color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.info-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .info-item .el-icon {
   font-size: 14px;
   color: #94a3b8;
+  flex-shrink: 0;
+}
+
+/* 专业标签样式 */
+.major-item {
+  align-items: flex-start;
+}
+
+.major-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.major-tags .el-tag {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.more-tag {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 22px;
 }
 
 .card-footer {

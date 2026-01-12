@@ -2,6 +2,40 @@ const { v4: uuidv4 } = require('uuid');
 const { getDB, saveDatabase } = require('../database/connection');
 
 /**
+ * 解析 major 字段（兼容旧的单字符串格式和新的 JSON 数组格式）
+ * @param {string} majorStr - 数据库中的 major 字段值
+ * @returns {string[]} - 专业数组
+ */
+function parseMajor(majorStr) {
+  if (!majorStr) return [];
+
+  try {
+    const parsed = JSON.parse(majorStr);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    // 如果解析结果不是数组，当作单字符串处理
+    return [majorStr];
+  } catch (e) {
+    // JSON 解析失败，当作单字符串处理（兼容旧数据）
+    return [majorStr];
+  }
+}
+
+/**
+ * 序列化 major 字段为 JSON 数组字符串
+ * @param {string|string[]} major - 专业（字符串或数组）
+ * @returns {string} - JSON 数组字符串
+ */
+function serializeMajor(major) {
+  if (Array.isArray(major)) {
+    return JSON.stringify(major);
+  }
+  // 如果是单字符串，转换为数组
+  return JSON.stringify([major]);
+}
+
+/**
  * 资源管理控制器
  */
 class ResourceController {
@@ -55,8 +89,9 @@ class ResourceController {
       }
 
       if (major) {
-        whereConditions.push('major = ?');
-        params.push(major);
+        // 使用 LIKE 匹配 JSON 数组中的专业（匹配 "专业名" 格式）
+        whereConditions.push('major LIKE ?');
+        params.push(`%"${major}"%`);
       }
 
       if (keyword) {
@@ -88,10 +123,16 @@ class ResourceController {
         LIMIT ? OFFSET ?
       `).all([...params, parseInt(pageSize), offset]);
 
+      // 解析每条资源的 major 字段
+      const parsedResources = resources.map(r => ({
+        ...r,
+        major: parseMajor(r.major)
+      }));
+
       res.json({
         success: true,
         data: {
-          list: resources,
+          list: parsedResources,
           pagination: {
             page: parseInt(page),
             pageSize: parseInt(pageSize),
@@ -152,6 +193,7 @@ class ResourceController {
       // 映射字段：prompt_text -> additional_requirements
       const responseData = {
         ...resource,
+        major: parseMajor(resource.major),
         additional_requirements: resource.prompt_text || ''
       };
 
@@ -226,7 +268,7 @@ class ResourceController {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+8 hours'), datetime('now', '+8 hours'))
       `).run([
         uuid, userId, title, courseName, courseLevel,
-        major, title, additionalRequirements || '', contentHtml || '',
+        serializeMajor(major), title, additionalRequirements || '', contentHtml || '',
         templateId || null,  // 将 undefined 转换为 null
         folderId || null,    // 将 undefined 转换为 null
         resourceStatus,
@@ -254,6 +296,7 @@ class ResourceController {
         success: true,
         data: {
           ...resource,
+          major: parseMajor(resource.major),
           publicUrl: resource.public_url
         }
       });
@@ -359,7 +402,7 @@ class ResourceController {
             updated_at = datetime('now', '+8 hours')
         WHERE id = ? ${!isAdmin ? 'AND user_id = ?' : ''}
       `).run([
-        title, courseName, courseLevel, major, title, additionalRequirements || '',
+        title, courseName, courseLevel, serializeMajor(major), title, additionalRequirements || '',
         contentHtml || null,
         templateId || null,
         folderId || null,
@@ -380,6 +423,7 @@ class ResourceController {
         success: true,
         data: {
           ...updatedResource,
+          major: parseMajor(updatedResource.major),
           publicUrl: updatedResource.public_url
         }
       });
@@ -588,20 +632,32 @@ class ResourceController {
         ORDER BY count DESC, course_name ASC
       `).all([]);
 
-      // 获取整个系统已使用的专业（去重、按使用频率排序）
-      const majors = db.prepare(`
-        SELECT major as name, COUNT(*) as count
+      // 获取所有资源的 major 字段，解析 JSON 数组并统计频率
+      const majorRecords = db.prepare(`
+        SELECT major
         FROM resources
-        WHERE major IS NOT NULL AND major != ''
-        GROUP BY major
-        ORDER BY count DESC, major ASC
+        WHERE major IS NOT NULL AND major != '' AND major != '[]'
       `).all([]);
+
+      // 统计每个专业���使用次数
+      const majorCount = {};
+      for (const record of majorRecords) {
+        const majors = parseMajor(record.major);
+        for (const m of majors) {
+          majorCount[m] = (majorCount[m] || 0) + 1;
+        }
+      }
+
+      // 按使用频率排序
+      const sortedMajors = Object.entries(majorCount)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([name]) => name);
 
       res.json({
         success: true,
         data: {
           courseNames: courseNames.map(item => item.name),
-          majors: majors.map(item => item.name)
+          majors: sortedMajors
         }
       });
     } catch (error) {
@@ -753,8 +809,33 @@ class ResourceController {
   }
 
   /**
+   * 获取资源的原始HTML内容（用于iframe加载）
+   */
+  async getPublicResourceContent(req, res) {
+    try {
+      const { uuid } = req.params;
+      const db = await getDB();
+
+      const resource = db.prepare(`
+        SELECT content_html, is_disabled, status
+        FROM resources
+        WHERE uuid = ? AND status = 'published'
+      `).get([uuid]);
+
+      if (!resource || resource.is_disabled) {
+        return res.status(404).send('<h1>资源不存在或已被禁用</h1>');
+      }
+
+      res.send(resource.content_html);
+    } catch (error) {
+      console.error('获取资源内容错误:', error);
+      res.status(500).send('<h1>获取资源失败</h1>');
+    }
+  }
+
+  /**
    * 公开访问资源（无需认证）
-   * 检查资源是否被禁用
+   * 返回包含计时器的容器页面，支持移动端自适应
    */
   async getPublicResource(req, res) {
     try {
@@ -762,7 +843,7 @@ class ResourceController {
       const db = await getDB();
 
       const resource = db.prepare(`
-        SELECT r.title, r.course_name, r.course_level, r.major, r.subject, r.content_html, r.is_disabled, r.user_id
+        SELECT r.id, r.title, r.course_name, r.course_level, r.major, r.subject, r.content_html, r.is_disabled, r.user_id
         FROM resources r
         WHERE r.uuid = ? AND r.status = 'published'
       `).get([uuid]);
@@ -786,7 +867,7 @@ class ResourceController {
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>资源已下架 - 教学资源平台</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -899,6 +980,12 @@ class ResourceController {
       font-size: 12px;
       color: #cbd5e1;
     }
+    @media (max-width: 480px) {
+      .container { padding: 32px 24px; }
+      h1 { font-size: 20px; }
+      .message { font-size: 14px; }
+      .btn { padding: 12px 20px; font-size: 14px; }
+    }
   </style>
 </head>
 <body>
@@ -946,8 +1033,567 @@ class ResourceController {
       `).run([uuid]);
       saveDatabase();
 
-      // 返回HTML内容
-      res.send(resource.content_html);
+      const baseUrl = process.env.BASE_URL || 'http://localhost:8080';
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+      // 返回带计时器的容器页面（移动端自适应）
+      const containerHtml = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>${resource.title} - 医教智创云平台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* 资源内容iframe - 完全自适应 */
+    #resource-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* 计时器悬浮组件 - PC端样式 */
+    .timer-widget {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 12px 16px;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      z-index: 9999;
+      cursor: move;
+      user-select: none;
+      min-width: 140px;
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+      touch-action: none;
+    }
+
+    .timer-widget:hover {
+      transform: scale(1.02);
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
+    }
+
+    .timer-widget.minimized {
+      padding: 8px 12px;
+      min-width: auto;
+    }
+
+    .timer-widget.minimized .timer-details {
+      display: none;
+    }
+
+    .timer-widget.not-logged-in {
+      background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+      cursor: pointer;
+    }
+
+    .timer-widget.dragging {
+      opacity: 0.9;
+      transform: scale(1.05);
+    }
+
+    .timer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .timer-widget.minimized .timer-header {
+      margin-bottom: 0;
+    }
+
+    .timer-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .timer-title svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .timer-toggle {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: background 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .timer-toggle:hover,
+    .timer-toggle:active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .timer-details {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .timer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .timer-label {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+
+    .timer-value {
+      font-size: 14px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.2);
+      margin: 4px 0;
+    }
+
+    .login-prompt {
+      font-size: 11px;
+      text-align: center;
+      opacity: 0.9;
+    }
+
+    .login-prompt a {
+      color: white;
+      text-decoration: underline;
+    }
+
+    /* 移动端响应式样式 */
+    @media (max-width: 768px) {
+      .timer-widget {
+        bottom: 12px;
+        right: 12px;
+        left: auto;
+        font-size: 12px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        min-width: 130px;
+        max-width: calc(100vw - 24px);
+      }
+
+      .timer-widget.minimized {
+        padding: 8px 10px;
+        min-width: auto;
+      }
+
+      .timer-header {
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+
+      .timer-title {
+        font-size: 11px;
+      }
+
+      .timer-title svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .timer-toggle {
+        width: 28px;
+        height: 28px;
+        font-size: 18px;
+      }
+
+      .timer-label {
+        font-size: 10px;
+      }
+
+      .timer-value {
+        font-size: 13px;
+      }
+
+      .login-prompt {
+        font-size: 10px;
+      }
+    }
+
+    /* 小屏手机 */
+    @media (max-width: 375px) {
+      .timer-widget {
+        bottom: 8px;
+        right: 8px;
+        padding: 8px 12px;
+        font-size: 11px;
+        min-width: 120px;
+      }
+    }
+
+    /* 横屏模式 */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .timer-widget {
+        bottom: 8px;
+        right: 8px;
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
+      .timer-header {
+        margin-bottom: 4px;
+      }
+
+      .timer-details {
+        gap: 2px;
+      }
+    }
+
+    /* 安全区域适配（iPhone X及以上） */
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      .timer-widget {
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        right: calc(12px + env(safe-area-inset-right));
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 资源内容iframe -->
+  <iframe id="resource-frame" src="${baseUrl}/r/${uuid}/content" title="${resource.title}"></iframe>
+
+  <!-- 计时器组件 -->
+  <div id="timer-widget" class="timer-widget">
+    <div class="timer-header">
+      <span class="timer-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12,6 12,12 16,14"></polyline>
+        </svg>
+        学习计时
+      </span>
+      <button class="timer-toggle" id="timer-toggle" title="最小化/展开">−</button>
+    </div>
+    <div class="timer-details" id="timer-details">
+      <div class="timer-row">
+        <span class="timer-label">本次学习</span>
+        <span class="timer-value" id="current-time">00:00:00</span>
+      </div>
+      <div class="timer-divider"></div>
+      <div class="timer-row">
+        <span class="timer-label">累计学习</span>
+        <span class="timer-value" id="total-time">00:00:00</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // 配置
+      var API_BASE = '${baseUrl}';
+      var FRONTEND_URL = '${frontendUrl}';
+      var RESOURCE_ID = ${resource.id};
+      var HEARTBEAT_INTERVAL = 30000; // 30秒心跳
+
+      // 状态
+      var viewId = null;
+      var startTime = Date.now();
+      var currentSeconds = 0;
+      var totalSeconds = 0;
+      var isLoggedIn = false;
+      var token = null;
+      var heartbeatTimer = null;
+      var timerInterval = null;
+      var isMinimized = false;
+
+      // DOM元素
+      var widget = document.getElementById('timer-widget');
+      var currentTimeEl = document.getElementById('current-time');
+      var totalTimeEl = document.getElementById('total-time');
+      var toggleBtn = document.getElementById('timer-toggle');
+      var timerDetails = document.getElementById('timer-details');
+
+      // 检测移动设备
+      var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      // 格式化时间
+      function formatTime(seconds) {
+        var h = Math.floor(seconds / 3600);
+        var m = Math.floor((seconds % 3600) / 60);
+        var s = seconds % 60;
+        return [h, m, s].map(function(v) { return String(v).padStart(2, '0'); }).join(':');
+      }
+
+      // 更新计时器显示
+      function updateDisplay() {
+        currentSeconds = Math.floor((Date.now() - startTime) / 1000);
+        currentTimeEl.textContent = formatTime(currentSeconds);
+        totalTimeEl.textContent = formatTime(totalSeconds + currentSeconds);
+      }
+
+      // 检查登录状态
+      function checkLoginStatus() {
+        try {
+          token = localStorage.getItem('auth_token');
+          isLoggedIn = !!token;
+        } catch (e) {
+          isLoggedIn = false;
+        }
+
+        if (!isLoggedIn) {
+          widget.classList.add('not-logged-in');
+          timerDetails.innerHTML = '<div class="login-prompt">登录后可记录学习时长<br><a href="' + FRONTEND_URL + '/login" target="_blank">点击登录</a></div>';
+          widget.onclick = function() {
+            window.open(FRONTEND_URL + '/login', '_blank');
+          };
+        }
+
+        return isLoggedIn;
+      }
+
+      // API请求
+      function apiRequest(url, options) {
+        options = options || {};
+        if (!token) return Promise.resolve(null);
+
+        return fetch(url, Object.assign({}, options, {
+          headers: Object.assign({
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          }, options.headers || {})
+        }))
+        .then(function(response) {
+          if (!response.ok) throw new Error('API请求失败');
+          return response.json();
+        })
+        .catch(function(error) {
+          console.error('API请求错误:', error);
+          return null;
+        });
+      }
+
+      // 开始浏览记录
+      function startView() {
+        if (!isLoggedIn) return Promise.resolve();
+
+        return apiRequest(API_BASE + '/api/views/start', {
+          method: 'POST',
+          body: JSON.stringify({
+            resourceId: RESOURCE_ID,
+            userAgent: navigator.userAgent
+          })
+        }).then(function(result) {
+          if (result && result.success) {
+            viewId = result.data.viewId;
+            console.log('浏览记录已开始:', viewId);
+          }
+        });
+      }
+
+      // 心跳更新
+      function heartbeat() {
+        if (!viewId || !isLoggedIn) return Promise.resolve();
+
+        return apiRequest(API_BASE + '/api/views/' + viewId + '/heartbeat', {
+          method: 'POST',
+          body: JSON.stringify({
+            duration: currentSeconds
+          })
+        });
+      }
+
+      // 结束浏览（使用sendBeacon）
+      function endView() {
+        if (!viewId || !token) return;
+
+        var data = JSON.stringify({ duration: currentSeconds });
+        var url = API_BASE + '/api/views/' + viewId + '/end';
+
+        // 尝试使用sendBeacon
+        if (navigator.sendBeacon) {
+          var blob = new Blob([data], { type: 'application/json' });
+          navigator.sendBeacon(url + '?token=' + token, blob);
+        } else {
+          // 降级到同步请求
+          var xhr = new XMLHttpRequest();
+          xhr.open('POST', url, false);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+          xhr.send(data);
+        }
+      }
+
+      // 获取累计浏览时长
+      function loadTotalDuration() {
+        if (!isLoggedIn) return Promise.resolve();
+
+        return apiRequest(API_BASE + '/api/views/stats').then(function(result) {
+          if (result && result.success && result.data) {
+            totalSeconds = result.data.stats && result.data.stats.totalDuration || 0;
+            updateDisplay();
+          }
+        });
+      }
+
+      // 切换最小化
+      function toggleMinimize(e) {
+        if (e) e.stopPropagation();
+        isMinimized = !isMinimized;
+        widget.classList.toggle('minimized', isMinimized);
+        toggleBtn.textContent = isMinimized ? '+' : '−';
+      }
+
+      // 拖拽功能（同时支持鼠标和触摸）
+      function initDrag() {
+        var isDragging = false;
+        var startX, startY, initialX, initialY;
+        var hasMoved = false;
+
+        function handleDragStart(e) {
+          if (e.target === toggleBtn || e.target.tagName === 'A') return;
+
+          var touch = e.touches ? e.touches[0] : e;
+          isDragging = true;
+          hasMoved = false;
+
+          var rect = widget.getBoundingClientRect();
+          startX = touch.clientX;
+          startY = touch.clientY;
+          initialX = rect.left;
+          initialY = rect.top;
+
+          widget.classList.add('dragging');
+          widget.style.transition = 'none';
+
+          if (e.touches) {
+            e.preventDefault();
+          }
+        }
+
+        function handleDragMove(e) {
+          if (!isDragging) return;
+
+          var touch = e.touches ? e.touches[0] : e;
+          var deltaX = touch.clientX - startX;
+          var deltaY = touch.clientY - startY;
+
+          // 检测是否真的在拖动
+          if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+            hasMoved = true;
+          }
+
+          var x = initialX + deltaX;
+          var y = initialY + deltaY;
+
+          // 边界限制
+          x = Math.max(0, Math.min(window.innerWidth - widget.offsetWidth, x));
+          y = Math.max(0, Math.min(window.innerHeight - widget.offsetHeight, y));
+
+          widget.style.left = x + 'px';
+          widget.style.right = 'auto';
+          widget.style.top = y + 'px';
+          widget.style.bottom = 'auto';
+
+          if (e.touches) {
+            e.preventDefault();
+          }
+        }
+
+        function handleDragEnd(e) {
+          if (!isDragging) return;
+          isDragging = false;
+          widget.classList.remove('dragging');
+          widget.style.transition = '';
+
+          // 如果没有移动，则视为点击
+          if (!hasMoved && widget.classList.contains('not-logged-in')) {
+            window.open(FRONTEND_URL + '/login', '_blank');
+          }
+        }
+
+        // 鼠标事件
+        widget.addEventListener('mousedown', handleDragStart);
+        document.addEventListener('mousemove', handleDragMove);
+        document.addEventListener('mouseup', handleDragEnd);
+
+        // 触摸事件
+        widget.addEventListener('touchstart', handleDragStart, { passive: false });
+        document.addEventListener('touchmove', handleDragMove, { passive: false });
+        document.addEventListener('touchend', handleDragEnd);
+        document.addEventListener('touchcancel', handleDragEnd);
+      }
+
+      // 初始化
+      function init() {
+        initDrag();
+        toggleBtn.addEventListener('click', toggleMinimize);
+
+        // 移动端默认最小化
+        if (isMobile) {
+          toggleMinimize();
+        }
+
+        checkLoginStatus();
+
+        if (isLoggedIn) {
+          loadTotalDuration().then(function() {
+            return startView();
+          }).then(function() {
+            // 启动心跳
+            heartbeatTimer = setInterval(heartbeat, HEARTBEAT_INTERVAL);
+          });
+        }
+
+        // 启动计时器更新
+        timerInterval = setInterval(updateDisplay, 1000);
+        updateDisplay();
+
+        // 页面关闭时结束浏览
+        window.addEventListener('beforeunload', endView);
+        window.addEventListener('pagehide', endView);
+
+        // 页面可见性变化
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'hidden') {
+            heartbeat(); // 离开时发送一次心跳
+          }
+        });
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
+      `;
+
+      res.send(containerHtml);
     } catch (error) {
       console.error('访问公开资源错误:', error);
       res.status(500).json({
@@ -993,8 +1639,9 @@ class ResourceController {
       }
 
       if (major) {
-        whereConditions.push('major = ?');
-        params.push(major);
+        // 使用 LIKE 匹配 JSON 数组中的专业（匹配 "专业名" 格式）
+        whereConditions.push('major LIKE ?');
+        params.push(`%"${major}"%`);
       }
 
       const whereClause = whereConditions.join(' AND ');
@@ -1023,10 +1670,16 @@ class ResourceController {
         LIMIT ? OFFSET ?
       `).all([...params, parseInt(pageSize), offset]);
 
+      // 解析每条资源的 major 字段
+      const parsedResources = resources.map(r => ({
+        ...r,
+        major: parseMajor(r.major)
+      }));
+
       res.json({
         success: true,
         data: {
-          list: resources,
+          list: parsedResources,
           pagination: {
             page: parseInt(page),
             pageSize: parseInt(pageSize),
@@ -1054,16 +1707,28 @@ class ResourceController {
     try {
       const db = await getDB();
 
-      const majors = db.prepare(`
-        SELECT DISTINCT major
+      // 获取所有已发布资源的 major 字段
+      const majorRecords = db.prepare(`
+        SELECT major
         FROM resources
-        WHERE status = 'published' AND major IS NOT NULL AND major != ''
-        ORDER BY major ASC
+        WHERE status = 'published' AND major IS NOT NULL AND major != '' AND major != '[]'
       `).all();
+
+      // 解析 JSON 数组并去重
+      const majorSet = new Set();
+      for (const record of majorRecords) {
+        const majors = parseMajor(record.major);
+        for (const m of majors) {
+          majorSet.add(m);
+        }
+      }
+
+      // 转换为数组并排序
+      const sortedMajors = Array.from(majorSet).sort();
 
       res.json({
         success: true,
-        data: majors.map(m => m.major)
+        data: sortedMajors
       });
     } catch (error) {
       console.error('获取专业列表错误:', error);

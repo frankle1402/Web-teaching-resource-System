@@ -107,7 +107,7 @@
           v-for="(section, index) in localOutline.sections"
           :key="section.id"
           class="section-item"
-          :class="{ 'is-quiz': section.hasQuiz }"
+          :class="{ 'has-media': section.mediaType && section.mediaType !== 'none' }"
         >
           <!-- 排序按钮 -->
           <div class="section-sort-buttons">
@@ -182,7 +182,51 @@
                 <el-option label="B站视频" value="video" />
               </el-select>
 
-              <!-- 考核点配置 -->
+              <!-- B站视频地址输入（仅当选择B站视频时显示） -->
+              <el-input
+                v-if="section.mediaType === 'video'"
+                v-model="section.videoUrl"
+                placeholder="粘贴B站视频地址，如 https://www.bilibili.com/video/BV..."
+                size="small"
+                style="flex: 1; min-width: 300px"
+                clearable
+                @blur="handleVideoUrlChange(section)"
+              >
+                <template #prepend>B站链接</template>
+              </el-input>
+
+              <!-- 图片上传（仅当选择预设图片时显示） -->
+              <div v-if="section.mediaType === 'image'" class="image-upload-area" style="flex: 1; min-width: 300px; display: flex; align-items: center; gap: 12px;">
+                <el-upload
+                  :action="uploadUrl"
+                  :headers="uploadHeaders"
+                  :on-success="(res) => handleImageUpload(res, section)"
+                  :on-error="handleImageUploadError"
+                  :show-file-list="false"
+                  accept="image/*"
+                >
+                  <el-button type="primary" size="small">
+                    <el-icon><Upload /></el-icon> 上传图片
+                  </el-button>
+                </el-upload>
+                <div v-if="section.imageUrl" class="image-preview-mini" style="display: flex; align-items: center; gap: 8px;">
+                  <img :src="section.imageUrl" alt="预览" style="max-width: 60px; max-height: 40px; border-radius: 4px; object-fit: cover;" />
+                  <el-input
+                    v-model="section.imageCaption"
+                    placeholder="图片说明（可选）"
+                    size="small"
+                    style="width: 150px"
+                  />
+                  <el-button type="danger" size="small" link @click="section.imageUrl = ''; section.imageCaption = ''">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </div>
+                <el-text v-else type="info" size="small">支持 JPG、PNG、GIF 格式</el-text>
+              </div>
+            </div>
+
+            <!-- 考核点配置（单独一行） -->
+            <div class="section-quiz-options">
               <el-checkbox v-model="section.hasQuiz">
                 包含考核点
               </el-checkbox>
@@ -279,7 +323,7 @@
 
 <script setup>
 import { ref, reactive, watch, computed } from 'vue'
-import { Plus, Delete, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, Delete, ArrowUp, ArrowDown, Upload } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const props = defineProps({
@@ -342,6 +386,10 @@ watch(
           description: s.description || '',
           duration: s.duration || 15,
           mediaType: normalizeMediaType(s.mediaType),
+          videoUrl: s.videoUrl || '',
+          videoEmbedCode: s.videoEmbedCode || '',
+          imageUrl: s.imageUrl || '',
+          imageCaption: s.imageCaption || '',
           hasQuiz: s.hasQuiz || false,
           quizType: normalizeQuizType(s.quizType),
           keyPoints: s.keyPoints || []
@@ -452,6 +500,10 @@ const addSection = () => {
     description: '',
     duration: 15,
     mediaType: 'none',
+    videoUrl: '',
+    videoEmbedCode: '',
+    imageUrl: '',
+    imageCaption: '',
     hasQuiz: false,
     quizType: 'choice',
     keyPoints: []
@@ -520,6 +572,101 @@ const addQuizTopic = () => {
 
 const removeQuizTopic = (index) => {
   localOutline.finalQuizTopics.splice(index, 1)
+}
+
+/**
+ * 从B站视频URL中提取BV号
+ * @param {string} url - B站视频URL
+ * @returns {string|null} - BV号或null
+ */
+const extractBilibiliVideoId = (url) => {
+  if (!url) return null
+
+  // 匹配 BV 号的正则表达式
+  // 支持格式:
+  // - https://www.bilibili.com/video/BV1GM41197Tx/
+  // - https://www.bilibili.com/video/BV1GM41197Tx?spm_id_from=xxx
+  // - https://b23.tv/BV1GM41197Tx
+  // - BV1GM41197Tx
+  const bvMatch = url.match(/BV[a-zA-Z0-9]+/)
+  if (bvMatch) {
+    return bvMatch[0]
+  }
+
+  return null
+}
+
+/**
+ * 生成B站视频嵌入代码
+ * @param {string} bvid - B站视频BV号
+ * @returns {string} - 嵌入代码
+ */
+const generateBilibiliEmbedCode = (bvid) => {
+  if (!bvid) return ''
+
+  // 生成自适应的嵌入代码，最小高度600px确保视频画面不会过小
+  return `<div class="video-container" style="position: relative; width: 100%; min-height: 600px; aspect-ratio: 16/9; overflow: hidden;">
+  <iframe src="https://player.bilibili.com/player.html?bvid=${bvid}&autoplay=0" scrolling="no" frameborder="no" allowfullscreen="true" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; min-height: 600px;"></iframe>
+</div>`
+}
+
+/**
+ * 处理B站视频URL变化
+ * @param {Object} section - 章节对象
+ */
+const handleVideoUrlChange = (section) => {
+  const url = section.videoUrl?.trim()
+  if (!url) {
+    section.videoEmbedCode = ''
+    return
+  }
+
+  const bvid = extractBilibiliVideoId(url)
+  if (bvid) {
+    section.videoEmbedCode = generateBilibiliEmbedCode(bvid)
+    ElMessage.success(`已识别B站视频: ${bvid}`)
+  } else {
+    section.videoEmbedCode = ''
+    ElMessage.warning('无法识别B站视频地址，请确保包含BV号')
+  }
+}
+
+// ========== 图片上传相关 ==========
+
+/**
+ * 图片上传URL（使用收藏模块的上传接口）
+ */
+const uploadUrl = '/api/favorites/upload/image'
+
+/**
+ * 上传请求头（包含认证token）
+ */
+const uploadHeaders = computed(() => {
+  const token = localStorage.getItem('token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+})
+
+/**
+ * 处理图片上传成功
+ * @param {Object} response - 上传响应
+ * @param {Object} section - 章节对象
+ */
+const handleImageUpload = (response, section) => {
+  if (response.success && response.data?.url) {
+    section.imageUrl = response.data.url
+    ElMessage.success('图片上传成功')
+  } else {
+    ElMessage.error(response.error?.message || '图片上传失败')
+  }
+}
+
+/**
+ * 处理图片上传失败
+ * @param {Error} error - 错误对象
+ */
+const handleImageUploadError = (error) => {
+  console.error('图片上传错误:', error)
+  ElMessage.error('图片上传失败，请重试')
 }
 </script>
 
@@ -619,7 +766,8 @@ const removeQuizTopic = (index) => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
-.section-item.is-quiz {
+/* 有媒体时左侧显示金黄色边框 */
+.section-item.has-media {
   border-left: 3px solid #e6a23c;
 }
 
@@ -656,6 +804,15 @@ const removeQuizTopic = (index) => {
   gap: 12px;
   margin-top: 4px;
   flex-wrap: wrap;
+}
+
+/* 考核点配置行（单独一行） */
+.section-quiz-options {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e4e7ed;
 }
 
 .section-actions {

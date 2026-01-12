@@ -281,3 +281,76 @@ CREATE TABLE IF NOT EXISTS admin_logs (
 CREATE INDEX IF NOT EXISTS idx_admin_logs_admin_id ON admin_logs(admin_id);
 CREATE INDEX IF NOT EXISTS idx_admin_logs_target ON admin_logs(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_admin_logs_created_at ON admin_logs(created_at);
+
+-- ====================================
+-- 9. 收藏文件夹表
+-- ====================================
+CREATE TABLE IF NOT EXISTS favorite_folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,                 -- 所属用户
+    name TEXT NOT NULL,                       -- 文件夹名称
+    parent_id INTEGER DEFAULT 0,              -- 父文件夹ID（0表示根目录）
+    sort_order INTEGER DEFAULT 0,             -- 排序序号
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+    updated_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_favorite_folders_user_id ON favorite_folders(user_id);
+CREATE INDEX IF NOT EXISTS idx_favorite_folders_parent_id ON favorite_folders(parent_id);
+
+-- ====================================
+-- 10. 收藏资源表
+-- ====================================
+CREATE TABLE IF NOT EXISTS favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,                 -- 所属用户
+    folder_id INTEGER DEFAULT NULL,           -- 所属收藏夹（NULL表示未分类）
+
+    -- 资源类型
+    type TEXT NOT NULL,                       -- 'bilibili'/'wechat_article'/'image'
+
+    -- 通用字段
+    title TEXT NOT NULL,                      -- 标题
+    description TEXT,                         -- 描述/摘要
+    thumbnail_url TEXT,                       -- 封面图URL
+    source_url TEXT NOT NULL,                 -- 原始URL
+
+    -- B站视频专用字段
+    bvid TEXT,                                -- B站视频BV号
+    video_duration INTEGER,                   -- 视频时长（秒）
+    author_name TEXT,                         -- UP主名称
+    play_count INTEGER,                       -- 播放量
+
+    -- 公众号文章专用字段
+    article_author TEXT,                      -- 公众号名称
+    publish_time DATETIME,                    -- 发布时间
+
+    -- 图片专用字段
+    local_path TEXT,                          -- 本地存储路径
+    original_filename TEXT,                   -- 原始文件名
+    file_size INTEGER,                        -- 文件大小（字节）
+    mime_type TEXT,                           -- MIME类型
+    width INTEGER,                            -- 图片宽度
+    height INTEGER,                           -- 图片高度
+
+    -- 元数据
+    metadata TEXT,                            -- 额外元数据（JSON格式）
+    fetch_time DATETIME DEFAULT (datetime('now', '+8 hours')), -- 抓取时间
+
+    -- 时间戳
+    created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+    updated_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (folder_id) REFERENCES favorite_folders(id) ON DELETE SET NULL
+);
+
+-- 创建索引
+CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_folder_id ON favorites(folder_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_type ON favorites(type);
+CREATE INDEX IF NOT EXISTS idx_favorites_bvid ON favorites(bvid);
+CREATE INDEX IF NOT EXISTS idx_favorites_source_url ON favorites(source_url);
+

@@ -16,6 +16,13 @@ const routes = [
     component: () => import('@/pages/Login.vue'),
     meta: { requiresAuth: false, title: '登录' }
   },
+  // 注册页
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/pages/Register.vue'),
+    meta: { requiresAuth: false, title: '新用户注册' }
+  },
   {
     path: '/explore',
     name: 'Explore',
@@ -36,7 +43,13 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: '/dashboard/resources'
+        redirect: '/dashboard/home'
+      },
+      {
+        path: 'home',
+        name: 'MyDashboard',
+        component: () => import('@/pages/MyDashboard.vue'),
+        meta: { title: '个人中心' }
       },
       {
         path: 'resources',
@@ -67,6 +80,30 @@ const routes = [
         name: 'Help',
         component: () => import('@/pages/Help.vue'),
         meta: { title: '帮助中心' }
+      },
+      {
+        path: 'view-history',
+        name: 'ViewHistory',
+        component: () => import('@/pages/ViewHistory.vue'),
+        meta: { title: '浏览记录' }
+      },
+      {
+        path: 'favorites',
+        name: 'Favorites',
+        component: () => import('@/pages/Favorites.vue'),
+        meta: { title: '我的收藏' }
+      },
+      {
+        path: 'profile',
+        name: 'ProfileSettings',
+        component: () => import('@/pages/ProfileSettings.vue'),
+        meta: { title: '个人设置' }
+      },
+      {
+        path: 'settings',
+        name: 'Settings',
+        component: () => import('@/pages/ProfileSettings.vue'),
+        meta: { title: '个人设置' }
       },
       // 管理员路由（需要管理员权限）
       {

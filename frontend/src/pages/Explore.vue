@@ -178,10 +178,24 @@
               <el-icon><Reading /></el-icon>
               {{ resource.course_name }}
             </span>
-            <span class="meta-item">
+            <div class="meta-majors">
               <el-icon><School /></el-icon>
-              {{ resource.major }}
-            </span>
+              <template v-if="Array.isArray(resource.major)">
+                <el-tag
+                  v-for="(majorItem, idx) in resource.major.slice(0, 3)"
+                  :key="idx"
+                  size="small"
+                  type="info"
+                  class="major-tag"
+                >
+                  {{ majorItem }}
+                </el-tag>
+                <span v-if="resource.major.length > 3" class="major-more">
+                  +{{ resource.major.length - 3 }}
+                </span>
+              </template>
+              <span v-else>{{ resource.major }}</span>
+            </div>
           </div>
 
           <div class="card-footer">
@@ -660,6 +674,25 @@ onMounted(() => {
   gap: 4px;
   font-size: 14px;
   color: #64748b;
+}
+
+.meta-majors {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.major-tag {
+  margin: 2px;
+}
+
+.major-more {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 4px;
 }
 
 .card-footer {

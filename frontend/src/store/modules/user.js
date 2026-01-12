@@ -4,6 +4,14 @@ import { ElMessage } from 'element-plus'
 import router from '@/router'
 
 /**
+ * 手机号脱敏
+ */
+function maskPhone(phone) {
+  if (!phone || phone.length < 7) return phone || '未知用户'
+  return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+}
+
+/**
  * 用户状态管理
  */
 export const useUserStore = defineStore('user', {
@@ -25,6 +33,16 @@ export const useUserStore = defineStore('user', {
     isAdmin: (state) => state.userInfo.role === 'admin',
 
     /**
+     * 是否为教师
+     */
+    isTeacher: (state) => state.userInfo.role === 'teacher',
+
+    /**
+     * 是否为学生
+     */
+    isStudent: (state) => state.userInfo.role === 'student',
+
+    /**
      * 获取用户手机号
      */
     userPhone: (state) => state.userInfo.phone || '',
@@ -38,6 +56,15 @@ export const useUserStore = defineStore('user', {
      * 获取用户角色
      */
     userRole: (state) => state.userInfo.role || 'user',
+
+    /**
+     * 获取显示名称（优先昵称，否则脱敏手机号）
+     */
+    displayName: (state) => {
+      if (state.userInfo.nickname) return state.userInfo.nickname
+      if (state.userInfo.phone) return maskPhone(state.userInfo.phone)
+      return '用户' + (state.userInfo.id || '')
+    },
 
     /**
      * 是否需要完善资料
@@ -74,10 +101,17 @@ export const useUserStore = defineStore('user', {
 
     /**
      * 验证码登录
+     * @returns {Object} { success: boolean, isNewUser?: boolean, phone?: string, code?: string }
      */
     async loginWithCode(phone, code) {
       try {
         const data = await authAPI.loginWithCode({ phone, code })
+
+        // 检查是否为新用户（后端返回 isNewUser: true）
+        if (data.isNewUser) {
+          // 新用户需要跳转到注册页面
+          return { success: true, isNewUser: true, phone: data.phone || phone, code }
+        }
 
         this.token = data.token
         this.userInfo = data.user
@@ -93,13 +127,13 @@ export const useUserStore = defineStore('user', {
         if (this.needCompleteProfile) {
           router.push('/complete-profile')
         } else {
-          router.push('/dashboard')
+          router.push('/dashboard/home')
         }
 
-        return true
+        return { success: true, isNewUser: false }
       } catch (error) {
         console.error('登录失败:', error)
-        return false
+        return { success: false }
       }
     },
 
@@ -175,6 +209,14 @@ export const useUserStore = defineStore('user', {
         localStorage.removeItem('user_info')
         return false
       }
+    },
+
+    /**
+     * 更新用户信息（用于个人设置页面保存后更新）
+     */
+    setUserInfo(userInfo) {
+      this.userInfo = userInfo
+      localStorage.setItem('user_info', JSON.stringify(userInfo))
     }
   }
 })

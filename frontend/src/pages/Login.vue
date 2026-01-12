@@ -194,9 +194,19 @@ const handleLogin = async () => {
 
     loading.value = true
 
-    const success = await userStore.loginWithCode(loginForm.phone, loginForm.code)
+    const result = await userStore.loginWithCode(loginForm.phone, loginForm.code)
 
-    if (!success) {
+    if (result.isNewUser) {
+      // 新用户跳转到注册页面，携带手机号和验证码
+      ElMessage.info('检测到新用户，请完成注册')
+      router.push({
+        path: '/register',
+        query: {
+          phone: result.phone,
+          code: result.code
+        }
+      })
+    } else if (!result.success) {
       loading.value = false
     }
     // 登录成功会自动跳转

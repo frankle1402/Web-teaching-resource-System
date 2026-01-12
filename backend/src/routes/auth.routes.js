@@ -17,6 +17,9 @@ router.post('/send-code', authController.sendVerificationCode);
 // 验证码登录（不需要Token）
 router.post('/login-with-code', authController.loginWithCode);
 
+// 新用户注册（不需要Token）
+router.post('/register', authController.register);
+
 // 退出登录（不需要Token，MVP阶段）
 router.post('/logout', authController.logout);
 

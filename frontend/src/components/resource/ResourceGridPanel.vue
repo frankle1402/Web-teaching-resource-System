@@ -792,9 +792,10 @@ defineExpose({
   flex: 1;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   padding-right: 8px;
+  align-content: start;
 }
 
 .resource-table {
@@ -821,29 +822,29 @@ defineExpose({
   color: #f56c6c !important;
 }
 
-/* 当屏幕足够宽时，最多显示4列 */
+/* 当屏幕足够宽时，显示4列 */
 @media (min-width: 1400px) {
   .resource-grid {
     grid-template-columns: repeat(4, 1fr);
   }
 }
 
-/* 中等屏幕最多3列 */
+/* 中等屏幕3列（默认） */
 @media (min-width: 1000px) and (max-width: 1399px) {
   .resource-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-/* 小屏幕最多2列 */
-@media (min-width: 600px) and (max-width: 999px) {
+/* 小屏幕2列 */
+@media (min-width: 700px) and (max-width: 999px) {
   .resource-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 /* 超小屏幕单列 */
-@media (max-width: 599px) {
+@media (max-width: 699px) {
   .resource-grid {
     grid-template-columns: 1fr;
   }

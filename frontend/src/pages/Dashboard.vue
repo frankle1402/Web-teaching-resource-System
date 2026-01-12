@@ -14,12 +14,18 @@
         router
         class="aside-menu"
       >
+        <el-menu-item index="/dashboard/home">
+          <el-icon><HomeFilled /></el-icon>
+          <span>个人中心</span>
+        </el-menu-item>
+
         <el-menu-item index="/dashboard/resources">
           <el-icon><Document /></el-icon>
           <span>我的资源</span>
         </el-menu-item>
 
-        <el-menu-item index="/dashboard/resources/create">
+        <!-- 教师和管理员可以创建资源 -->
+        <el-menu-item v-if="!isStudent" index="/dashboard/resources/create">
           <el-icon><Plus /></el-icon>
           <span>创建资源</span>
         </el-menu-item>
@@ -27,6 +33,16 @@
         <el-menu-item index="/dashboard/templates">
           <el-icon><Grid /></el-icon>
           <span>模板中心</span>
+        </el-menu-item>
+
+        <el-menu-item index="/dashboard/view-history">
+          <el-icon><Clock /></el-icon>
+          <span>浏览记录</span>
+        </el-menu-item>
+
+        <el-menu-item index="/dashboard/favorites">
+          <el-icon><Star /></el-icon>
+          <span>我的收藏</span>
         </el-menu-item>
 
         <el-menu-item index="/dashboard/help">
@@ -79,20 +95,26 @@
         </div>
 
         <div class="header-right">
-          <!-- 显示当前角色（用于调试和确认） -->
-          <span class="role-badge" :class="{ 'is-admin': isAdmin }">
-            {{ userRole === 'admin' ? '管理员' : '普通用户' }}
+          <!-- 显示当前角色 -->
+          <span class="role-badge" :class="roleBadgeClass">
+            {{ roleLabel }}
           </span>
 
           <el-dropdown @command="handleCommand">
             <span class="user-info">
-              <el-icon><User /></el-icon>
-              <span>{{ userPhone }}</span>
+              <el-avatar :size="28" :src="userStore.userInfo.avatar_url">
+                <el-icon><User /></el-icon>
+              </el-avatar>
+              <span>{{ displayName }}</span>
               <el-icon class="el-icon--right"><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="logout">
+                <el-dropdown-item command="settings">
+                  <el-icon><Setting /></el-icon>
+                  <span>个人设置</span>
+                </el-dropdown-item>
+                <el-dropdown-item divided command="logout">
                   <el-icon><SwitchButton /></el-icon>
                   <span>退出登录</span>
                 </el-dropdown-item>
@@ -128,11 +150,15 @@ import {
   User,
   ArrowDown,
   SwitchButton,
+  Setting,
   DataAnalysis,
   UserFilled,
   Files,
   Tickets,
-  Collection
+  Collection,
+  HomeFilled,
+  Clock,
+  Star
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -145,6 +171,9 @@ const activeMenu = computed(() => route.path)
 // 是否为管理员
 const isAdmin = computed(() => userStore.isAdmin)
 
+// 是否为学生
+const isStudent = computed(() => userStore.isStudent)
+
 // 用户角色（用于显示）
 const userRole = computed(() => userStore.userRole)
 
@@ -153,23 +182,37 @@ const currentPageTitle = computed(() => {
   return route.meta.title || '首页'
 })
 
-// 用户手机号
-const userPhone = computed(() => {
-  return userStore.userPhone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+// 显示名称（优先昵称，否则脱敏手机号）
+const displayName = computed(() => userStore.displayName)
+
+// 角色标签文本
+const roleLabel = computed(() => {
+  switch (userRole.value) {
+    case 'admin':
+      return '管理员'
+    case 'teacher':
+      return '教师'
+    case 'student':
+      return '学生'
+    default:
+      return '用户'
+  }
 })
 
-// 调试：输出用户信息
-console.log('Dashboard - 用户信息:', {
-  isAdmin: isAdmin.value,
-  userRole: userRole.value,
-  userInfo: userStore.userInfo
-})
+// 角色标签样式类
+const roleBadgeClass = computed(() => ({
+  'is-admin': userRole.value === 'admin',
+  'is-teacher': userRole.value === 'teacher',
+  'is-student': userRole.value === 'student'
+}))
 
 /**
  * 处理下拉菜单命令
  */
 const handleCommand = async (command) => {
-  if (command === 'logout') {
+  if (command === 'settings') {
+    router.push('/dashboard/settings')
+  } else if (command === 'logout') {
     try {
       await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
         confirmButtonText: '确定',
@@ -305,6 +348,16 @@ const handleGoToExplore = () => {
 
 .role-badge.is-admin {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.role-badge.is-teacher {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.role-badge.is-student {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
   color: white;
 }
 

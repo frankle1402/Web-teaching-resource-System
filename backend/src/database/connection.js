@@ -145,11 +145,192 @@ function runMigrations(db) {
       console.log('✓ admin_logs表创建成功');
     }
 
+    // ========== 用户角色升级和扩展字段迁移 ==========
+
+    // 检查users表的扩展字段
+    const userColumnsExtended = db.exec("PRAGMA table_info(users)");
+    let hasTenantId = false;
+    let hasTeacherTitle = false;
+    let hasTeacherField = false;
+    let hasStudentSchool = false;
+    let hasStudentMajor = false;
+    let hasStudentClass = false;
+    let hasStudentGrade = false;
+    let hasStudentLevel = false;
+
+    if (userColumnsExtended.length > 0) {
+      const extColNames = userColumnsExtended[0].values.map(col => col[1]);
+      hasTenantId = extColNames.includes('tenant_id');
+      hasTeacherTitle = extColNames.includes('teacher_title');
+      hasTeacherField = extColNames.includes('teacher_field');
+      hasStudentSchool = extColNames.includes('student_school');
+      hasStudentMajor = extColNames.includes('student_major');
+      hasStudentClass = extColNames.includes('student_class');
+      hasStudentGrade = extColNames.includes('student_grade');
+      hasStudentLevel = extColNames.includes('student_level');
+    }
+
+    // 多租户预留字段
+    if (!hasTenantId) {
+      console.log('⚙️  运行迁移: 添加users.tenant_id字段...');
+      db.exec("ALTER TABLE users ADD COLUMN tenant_id INTEGER DEFAULT NULL");
+      console.log('✓ users.tenant_id字段添加成功');
+    }
+
+    // 教师扩展字段
+    if (!hasTeacherTitle) {
+      console.log('⚙️  运行迁移: 添加users.teacher_title字段...');
+      db.exec("ALTER TABLE users ADD COLUMN teacher_title TEXT");
+      console.log('✓ users.teacher_title字段添加成功');
+    }
+
+    if (!hasTeacherField) {
+      console.log('⚙️  运行迁移: 添加users.teacher_field字段...');
+      db.exec("ALTER TABLE users ADD COLUMN teacher_field TEXT");
+      console.log('✓ users.teacher_field字段添加成功');
+    }
+
+    // 学生扩展字段
+    if (!hasStudentSchool) {
+      console.log('⚙️  运行迁移: 添加users.student_school字段...');
+      db.exec("ALTER TABLE users ADD COLUMN student_school TEXT");
+      console.log('✓ users.student_school字段添加成功');
+    }
+
+    if (!hasStudentMajor) {
+      console.log('⚙️  运行迁移: 添加users.student_major字段...');
+      db.exec("ALTER TABLE users ADD COLUMN student_major TEXT");
+      console.log('✓ users.student_major字段添加成功');
+    }
+
+    if (!hasStudentClass) {
+      console.log('⚙️  运行迁移: 添加users.student_class字段...');
+      db.exec("ALTER TABLE users ADD COLUMN student_class TEXT");
+      console.log('✓ users.student_class字段添加成功');
+    }
+
+    if (!hasStudentGrade) {
+      console.log('⚙️  运行迁移: 添加users.student_grade字段...');
+      db.exec("ALTER TABLE users ADD COLUMN student_grade TEXT");
+      console.log('✓ users.student_grade字段添加成功');
+    }
+
+    if (!hasStudentLevel) {
+      console.log('⚙️  运行迁移: 添加users.student_level字段...');
+      db.exec("ALTER TABLE users ADD COLUMN student_level TEXT");
+      console.log('✓ users.student_level字段添加成功');
+    }
+
+    // 用户角色迁移：将 role='user' 迁移为 role='teacher'
+    const userRoleCheck = db.exec("SELECT COUNT(*) as count FROM users WHERE role = 'user'");
+    if (userRoleCheck.length > 0 && userRoleCheck[0].values[0][0] > 0) {
+      console.log('⚙️  运行迁移: 将user角色升级为teacher...');
+      db.exec("UPDATE users SET role = 'teacher' WHERE role = 'user'");
+      console.log('✓ 用户角色升级完成');
+    }
+
+    // ========== 资源浏览记录表 ==========
+
+    const resourceViewsTables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='resource_views'");
+    if (resourceViewsTables.length === 0) {
+      console.log('⚙️  运行迁移: 创建resource_views表...');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS resource_views (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          resource_id INTEGER NOT NULL,
+          ip_address TEXT,
+          user_agent TEXT,
+          start_time DATETIME NOT NULL,
+          duration INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_resource_views_user_id ON resource_views(user_id);
+        CREATE INDEX IF NOT EXISTS idx_resource_views_resource_id ON resource_views(resource_id);
+        CREATE INDEX IF NOT EXISTS idx_resource_views_start_time ON resource_views(start_time DESC);
+        CREATE INDEX IF NOT EXISTS idx_resource_views_user_resource ON resource_views(user_id, resource_id);
+      `);
+      console.log('✓ resource_views表创建成功');
+    }
+
+    // ========== 收藏夹功能表 ==========
+
+    // 检查favorite_folders表是否存在
+    const favoriteFoldersTables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='favorite_folders'");
+    if (favoriteFoldersTables.length === 0) {
+      console.log('⚙️  运行迁移: 创建favorite_folders表...');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS favorite_folders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          parent_id INTEGER DEFAULT 0,
+          sort_order INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+          updated_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_favorite_folders_user_id ON favorite_folders(user_id);
+        CREATE INDEX IF NOT EXISTS idx_favorite_folders_parent_id ON favorite_folders(parent_id);
+      `);
+      console.log('✓ favorite_folders表创建成功');
+    }
+
+    // 检查favorites表是否存在
+    const favoritesTables = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'");
+    if (favoritesTables.length === 0) {
+      console.log('⚙️  运行迁移: 创建favorites表...');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS favorites (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          folder_id INTEGER DEFAULT NULL,
+          type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          thumbnail_url TEXT,
+          source_url TEXT NOT NULL,
+          bvid TEXT,
+          video_duration INTEGER,
+          author_name TEXT,
+          play_count INTEGER,
+          article_author TEXT,
+          publish_time DATETIME,
+          local_path TEXT,
+          original_filename TEXT,
+          file_size INTEGER,
+          mime_type TEXT,
+          width INTEGER,
+          height INTEGER,
+          metadata TEXT,
+          fetch_time DATETIME DEFAULT (datetime('now', '+8 hours')),
+          created_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+          updated_at DATETIME DEFAULT (datetime('now', '+8 hours')),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (folder_id) REFERENCES favorite_folders(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
+        CREATE INDEX IF NOT EXISTS idx_favorites_folder_id ON favorites(folder_id);
+        CREATE INDEX IF NOT EXISTS idx_favorites_type ON favorites(type);
+        CREATE INDEX IF NOT EXISTS idx_favorites_bvid ON favorites(bvid);
+        CREATE INDEX IF NOT EXISTS idx_favorites_source_url ON favorites(source_url);
+      `);
+      console.log('✓ favorites表创建成功');
+    }
+
     // 如果有迁移执行，保存数据库
-    if (!hasLikeCount || !hasDislikeCount || tables.length === 0 ||
+    const needsSave = !hasLikeCount || !hasDislikeCount || tables.length === 0 ||
         !hasIsDisabled || !hasDisabledAt || !hasDisabledBy || !hasDisabledReason ||
         !hasRole || !hasRealName || !hasOrganization || !hasProfileCompleted ||
-        adminLogsTables.length === 0) {
+        adminLogsTables.length === 0 ||
+        !hasTenantId || !hasTeacherTitle || !hasTeacherField ||
+        !hasStudentSchool || !hasStudentMajor || !hasStudentClass || !hasStudentGrade || !hasStudentLevel ||
+        resourceViewsTables.length === 0 ||
+        favoriteFoldersTables.length === 0 || favoritesTables.length === 0;
+
+    if (needsSave) {
       saveDatabase();
       console.log('✓ 数据库迁移完成并保存');
     }
