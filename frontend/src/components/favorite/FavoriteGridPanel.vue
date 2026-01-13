@@ -88,6 +88,7 @@
           @delete="handleDelete"
           @move="handleSingleMove"
           @insert="handleInsert"
+          @edit="handleEdit"
         />
       </div>
 
@@ -106,10 +107,11 @@
           <el-table-column label="封面" width="100">
             <template #default="{ row }">
               <div class="thumbnail-cell">
-                <img v-if="row.thumbnail_url" :src="row.thumbnail_url" alt="封面" />
+                <img v-if="getThumbnailUrl(row)" :src="getThumbnailUrl(row)" alt="封面" />
                 <el-icon v-else class="no-thumbnail">
                   <Picture v-if="row.type === 'image'" />
                   <VideoPlay v-else-if="row.type === 'bilibili'" />
+                  <Document v-else-if="row.type === 'resource'" />
                   <ChatLineSquare v-else />
                 </el-icon>
               </div>
@@ -117,7 +119,10 @@
           </el-table-column>
           <el-table-column prop="title" label="标题" min-width="200">
             <template #default="{ row }">
-              <span class="favorite-title" @click="handlePreview(row)">{{ row.title }}</span>
+              <div class="title-cell">
+                <span class="favorite-title" @click="handlePreview(row)">{{ row.custom_title || row.title }}</span>
+                <span v-if="row.custom_title" class="original-title-hint" :title="row.title">原标题: {{ row.title }}</span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column prop="type" label="类型" width="120">
@@ -130,6 +135,17 @@
           <el-table-column prop="author_name" label="来源" width="120">
             <template #default="{ row }">
               {{ row.author_name || row.article_author || '-' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="备注" width="100">
+            <template #default="{ row }">
+              <el-tooltip v-if="row.notes" :content="row.notes" placement="top" :disabled="!row.notes">
+                <el-button size="small" text type="primary">
+                  <el-icon><Document /></el-icon>
+                  备注
+                </el-button>
+              </el-tooltip>
+              <span v-else class="no-notes">-</span>
             </template>
           </el-table-column>
           <el-table-column prop="created_at" label="收藏时间" width="160">
@@ -145,6 +161,9 @@
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
+                    <el-dropdown-item command="edit">
+                      <el-icon><Edit /></el-icon> 编辑
+                    </el-dropdown-item>
                     <el-dropdown-item command="preview">
                       <el-icon><View /></el-icon> 查看
                     </el-dropdown-item>
@@ -221,7 +240,7 @@
         <div v-if="previewItem?.type === 'bilibili'" class="video-preview" v-html="previewEmbedCode"></div>
         <!-- 图片预览 -->
         <div v-else-if="previewItem?.type === 'image'" class="image-preview">
-          <img :src="previewItem.thumbnail_url || getImageUrl(previewItem.local_path)" alt="预览图片" />
+          <img :src="getPreviewImageUrl(previewItem)" alt="预览图片" />
         </div>
         <!-- 公众号文章预览 -->
         <div v-else-if="previewItem?.type === 'wechat_article'" class="article-preview">
@@ -233,8 +252,26 @@
             打开原文
           </el-button>
         </div>
+        <!-- 课件资源预览 -->
+        <div v-else-if="previewItem?.type === 'resource'" class="resource-preview">
+          <iframe
+            v-if="previewItem.source_url"
+            :src="previewItem.source_url"
+            class="resource-iframe"
+            frameborder="0"
+            allowfullscreen
+          ></iframe>
+          <el-empty v-else description="资源链接不可用" />
+        </div>
       </div>
     </el-dialog>
+
+    <!-- 编辑对话框 -->
+    <EditFavoriteDialog
+      v-model:visible="editDialogVisible"
+      :favorite="editingItem"
+      @success="handleEditSuccess"
+    />
   </div>
 </template>
 
@@ -244,11 +281,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, Plus, Grid, List, FolderAdd, Delete, View, Edit,
   ArrowDown, Folder, FolderOpened, Picture, VideoPlay,
-  ChatLineSquare, Select, Link
+  ChatLineSquare, Select, Link, Document
 } from '@element-plus/icons-vue'
 import { favoriteAPI } from '@/api/favorite'
 import FavoriteCard from './FavoriteCard.vue'
 import AddFavoriteDialog from './AddFavoriteDialog.vue'
+import EditFavoriteDialog from './EditFavoriteDialog.vue'
 
 const props = defineProps({
   folderId: {
@@ -287,11 +325,13 @@ const pagination = reactive({
 // 对话框状态
 const moveDialogVisible = ref(false)
 const showAddDialog = ref(false)
+const editDialogVisible = ref(false)
 const previewDialogVisible = ref(false)
 const moving = ref(false)
 const moveTargetFolderId = ref(null)
 const moveItemIds = ref([])
 const previewItem = ref(null)
+const editingItem = ref(null)
 
 const currentFolderId = computed(() => {
   if (props.folderId === 'all' || props.folderId === 'uncategorized') {
@@ -476,6 +516,9 @@ const handleAddSuccess = () => {
 // 表格命令处理
 const handleTableCommand = (command, row) => {
   switch (command) {
+    case 'edit':
+      handleEdit(row)
+      break
     case 'preview':
       handlePreview(row)
       break
@@ -489,6 +532,17 @@ const handleTableCommand = (command, row) => {
       handleDelete(row)
       break
   }
+}
+
+// 编辑处理
+const handleEdit = (favorite) => {
+  editingItem.value = favorite
+  editDialogVisible.value = true
+}
+
+// 编辑成功回调
+const handleEditSuccess = () => {
+  loadFavorites()
 }
 
 // 工具函数
@@ -508,7 +562,8 @@ const getTypeName = (type) => {
   const typeMap = {
     bilibili: 'B站视频',
     wechat_article: '公众号文章',
-    image: '图片'
+    image: '图片',
+    resource: '课件资源'
   }
   return typeMap[type] || type
 }
@@ -517,13 +572,38 @@ const getTypeTagType = (type) => {
   const typeMap = {
     bilibili: 'danger',
     wechat_article: 'success',
-    image: 'primary'
+    image: 'primary',
+    resource: 'warning'
   }
   return typeMap[type] || 'info'
 }
 
 const getImageUrl = (localPath) => {
   return favoriteAPI.getImageUrl(localPath)
+}
+
+// 获取缩略图URL（处理不同类型的收藏）
+const getThumbnailUrl = (favorite) => {
+  // 对于图片类型，优先使用local_path
+  if (favorite.type === 'image' && favorite.local_path) {
+    return favoriteAPI.getImageUrl(favorite.local_path)
+  }
+  // 对于B站视频，使用代理获取图片（解决防盗链问题）
+  if (favorite.type === 'bilibili' && favorite.thumbnail_url) {
+    return favoriteAPI.getBilibiliImageUrl(favorite.thumbnail_url)
+  }
+  // 其他类型使用thumbnail_url
+  return favorite.thumbnail_url || ''
+}
+
+// 获取预览图片URL
+const getPreviewImageUrl = (favorite) => {
+  if (!favorite) return ''
+  // 图片类型优先使用local_path
+  if (favorite.local_path) {
+    return favoriteAPI.getImageUrl(favorite.local_path)
+  }
+  return favorite.thumbnail_url || ''
 }
 
 const openLink = (url) => {
@@ -640,6 +720,12 @@ defineExpose({
   color: #94a3b8;
 }
 
+.title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .favorite-title {
   color: #3b82f6;
   cursor: pointer;
@@ -647,6 +733,20 @@ defineExpose({
 
 .favorite-title:hover {
   text-decoration: underline;
+}
+
+.original-title-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.no-notes {
+  color: #cbd5e1;
+  font-size: 12px;
 }
 
 .pagination-wrapper {
@@ -704,6 +804,17 @@ defineExpose({
 
 .article-preview p {
   margin-bottom: 12px;
+}
+
+.resource-preview {
+  width: 100%;
+  min-height: 400px;
+}
+
+.resource-iframe {
+  width: 100%;
+  height: 500px;
+  border-radius: 8px;
 }
 
 .danger-item {

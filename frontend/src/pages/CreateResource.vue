@@ -952,7 +952,7 @@ const generateFromOutline = async () => {
       major: form.major,
       additionalRequirements: `
 教学大纲：
-${outline.sections.map((s, i) => `${i + 1}. ${s.title}：${s.description || ''}${s.mediaType === 'video' ? '（含B站视频，章节ID：' + s.id + '）' : ''}${s.hasQuiz ? '（含考核点：' + s.quizType + '）' : ''}`).join('\n')}
+${outline.sections.map((s, i) => `${i + 1}. ${s.title}：${s.description || ''}${s.mediaType === 'video' ? '（含B站视频，章节ID：' + s.id + '）' : ''}${s.mediaType === 'image' && s.imageUrl ? '（含预设图片，章节ID：' + s.id + '）' : ''}${s.mediaType === 'article' && s.articleUrl ? '（含公众号文章链接）' : ''}${s.hasQuiz ? '（含考核点：' + s.quizType + '）' : ''}`).join('\n')}
 
 学习目标：
 ${outline.learningObjectives.join('\n')}
@@ -963,7 +963,7 @@ ${form.additionalRequirements || ''}
       `.trim(),
       contentDirections: form.contentDirections,
       teachingMethod: form.teachingMethod,
-      sections: outline.sections  // 传递完整的sections数据，用于后处理替换视频占位符
+      sections: outline.sections  // 传递完整的sections数据，用于后处理替换视频和图片占位符
     })
 
     if (response && response.content) {

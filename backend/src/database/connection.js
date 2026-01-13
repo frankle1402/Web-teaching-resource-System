@@ -147,7 +147,7 @@ function runMigrations(db) {
 
     // ========== 用户角色升级和扩展字段迁移 ==========
 
-    // 检查users表的扩展字段
+    // ���查users表的扩展字段
     const userColumnsExtended = db.exec("PRAGMA table_info(users)");
     let hasTenantId = false;
     let hasTeacherTitle = false;
@@ -157,6 +157,9 @@ function runMigrations(db) {
     let hasStudentClass = false;
     let hasStudentGrade = false;
     let hasStudentLevel = false;
+    let hasUserDisabledAt = false;
+    let hasUserDisabledBy = false;
+    let hasUserDisabledReason = false;
 
     if (userColumnsExtended.length > 0) {
       const extColNames = userColumnsExtended[0].values.map(col => col[1]);
@@ -168,6 +171,9 @@ function runMigrations(db) {
       hasStudentClass = extColNames.includes('student_class');
       hasStudentGrade = extColNames.includes('student_grade');
       hasStudentLevel = extColNames.includes('student_level');
+      hasUserDisabledAt = extColNames.includes('disabled_at');
+      hasUserDisabledBy = extColNames.includes('disabled_by');
+      hasUserDisabledReason = extColNames.includes('disabled_reason');
     }
 
     // 多租户预留字段
@@ -227,6 +233,25 @@ function runMigrations(db) {
       console.log('⚙️  运行迁移: 将user角色升级为teacher...');
       db.exec("UPDATE users SET role = 'teacher' WHERE role = 'user'");
       console.log('✓ 用户角色升级完成');
+    }
+
+    // 用户禁用相关字段
+    if (!hasUserDisabledAt) {
+      console.log('⚙️  运行迁移: 添加users.disabled_at字段...');
+      db.exec("ALTER TABLE users ADD COLUMN disabled_at DATETIME");
+      console.log('✓ users.disabled_at字段添加成功');
+    }
+
+    if (!hasUserDisabledBy) {
+      console.log('⚙️  运行迁移: 添加users.disabled_by字段...');
+      db.exec("ALTER TABLE users ADD COLUMN disabled_by INTEGER");
+      console.log('✓ users.disabled_by字段添加成功');
+    }
+
+    if (!hasUserDisabledReason) {
+      console.log('⚙️  运行迁移: 添加users.disabled_reason字段...');
+      db.exec("ALTER TABLE users ADD COLUMN disabled_reason TEXT");
+      console.log('✓ users.disabled_reason字段添加成功');
     }
 
     // ========== 资源浏览记录表 ==========
@@ -289,6 +314,8 @@ function runMigrations(db) {
           folder_id INTEGER DEFAULT NULL,
           type TEXT NOT NULL,
           title TEXT NOT NULL,
+          custom_title TEXT,
+          notes TEXT,
           description TEXT,
           thumbnail_url TEXT,
           source_url TEXT NOT NULL,
@@ -320,6 +347,38 @@ function runMigrations(db) {
       console.log('✓ favorites表创建成功');
     }
 
+    // 检查favorites表是否有custom_title、notes和resource_id字段（为现有数据库添加）
+    const favoritesColumns = db.exec("PRAGMA table_info(favorites)");
+    let hasCustomTitle = false;
+    let hasNotes = false;
+    let hasResourceId = false;
+    if (favoritesColumns.length > 0) {
+      const favColNames = favoritesColumns[0].values.map(col => col[1]);
+      hasCustomTitle = favColNames.includes('custom_title');
+      hasNotes = favColNames.includes('notes');
+      hasResourceId = favColNames.includes('resource_id');
+    }
+
+    if (!hasCustomTitle) {
+      console.log('⚙️  运行迁移: 添加favorites.custom_title字段...');
+      db.exec("ALTER TABLE favorites ADD COLUMN custom_title TEXT");
+      console.log('✓ favorites.custom_title字段添加成功');
+    }
+
+    if (!hasNotes) {
+      console.log('⚙️  运行迁移: 添加favorites.notes字段...');
+      db.exec("ALTER TABLE favorites ADD COLUMN notes TEXT");
+      console.log('✓ favorites.notes字段添加成功');
+    }
+
+    // 添加resource_id字段用于收藏课件资源
+    if (!hasResourceId) {
+      console.log('⚙️  运行迁移: 添加favorites.resource_id字段...');
+      db.exec("ALTER TABLE favorites ADD COLUMN resource_id INTEGER");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_favorites_resource_id ON favorites(resource_id)");
+      console.log('✓ favorites.resource_id字段添加成功');
+    }
+
     // 如果有迁移执行，保存数据库
     const needsSave = !hasLikeCount || !hasDislikeCount || tables.length === 0 ||
         !hasIsDisabled || !hasDisabledAt || !hasDisabledBy || !hasDisabledReason ||
@@ -327,8 +386,10 @@ function runMigrations(db) {
         adminLogsTables.length === 0 ||
         !hasTenantId || !hasTeacherTitle || !hasTeacherField ||
         !hasStudentSchool || !hasStudentMajor || !hasStudentClass || !hasStudentGrade || !hasStudentLevel ||
+        !hasUserDisabledAt || !hasUserDisabledBy || !hasUserDisabledReason ||
         resourceViewsTables.length === 0 ||
-        favoriteFoldersTables.length === 0 || favoritesTables.length === 0;
+        favoriteFoldersTables.length === 0 || favoritesTables.length === 0 ||
+        !hasCustomTitle || !hasNotes || !hasResourceId;
 
     if (needsSave) {
       saveDatabase();

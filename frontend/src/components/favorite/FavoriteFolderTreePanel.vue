@@ -36,6 +36,15 @@
     <div class="type-filters">
       <div
         class="type-filter-item"
+        :class="{ active: selectedType === 'resource' }"
+        @click="handleSelectType('resource')"
+      >
+        <el-icon class="type-icon resource"><Document /></el-icon>
+        <span>课件资源</span>
+        <span class="type-count">{{ typeCounts.resource || 0 }}</span>
+      </div>
+      <div
+        class="type-filter-item"
         :class="{ active: selectedType === 'bilibili' }"
         @click="handleSelectType('bilibili')"
       >
@@ -143,7 +152,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus, Folder, FolderOpened, Edit, Delete, Star,
-  VideoPlay, ChatLineSquare, Picture
+  VideoPlay, ChatLineSquare, Picture, Document
 } from '@element-plus/icons-vue'
 import { favoriteAPI } from '@/api/favorite'
 
@@ -495,6 +504,10 @@ onMounted(() => {
 
 .type-icon {
   font-size: 16px;
+}
+
+.type-icon.resource {
+  color: #8b5cf6;
 }
 
 .type-icon.bilibili {

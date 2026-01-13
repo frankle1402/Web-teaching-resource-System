@@ -123,6 +123,13 @@ export const useUserStore = defineStore('user', {
 
         ElMessage.success('登录成功')
 
+        // 同步 token 到后端 session（用于跨端口登录状态同步）
+        try {
+          await authAPI.syncToken()
+        } catch (error) {
+          console.error('同步 token 失败:', error)
+        }
+
         // 根据是否需要完善资料决定跳转
         if (this.needCompleteProfile) {
           router.push('/complete-profile')
@@ -164,6 +171,12 @@ export const useUserStore = defineStore('user', {
      */
     async logout() {
       try {
+        // 清除后端 session 中的 token
+        try {
+          await authAPI.clearSessionToken()
+        } catch (error) {
+          console.error('清除 session token 失败:', error)
+        }
         await authAPI.logout()
       } catch (error) {
         console.error('退出登录失败:', error)

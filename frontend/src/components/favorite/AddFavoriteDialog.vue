@@ -327,6 +327,7 @@ const handleSubmit = async () => {
     if (activeTab.value === 'bilibili') {
       if (!bilibiliMeta.value) {
         ElMessage.warning('请先获取视频信息')
+        submitting.value = false
         return
       }
       favoriteData = {
@@ -343,17 +344,24 @@ const handleSubmit = async () => {
       }
     } else if (activeTab.value === 'wechat') {
       if (!wechatMeta.value) {
-        ElMessage.warning('请先获取文章信息')
+        ElMessage.warning('请先点击"获取信息"按钮获取文章信息')
+        submitting.value = false
+        return
+      }
+      // 验证必要字段
+      if (!wechatMeta.value.title || !wechatMeta.value.sourceUrl) {
+        ElMessage.warning('文章信息不完整，请重新获取')
+        submitting.value = false
         return
       }
       favoriteData = {
         type: 'wechat_article',
         title: wechatMeta.value.title,
-        description: wechatMeta.value.description,
-        thumbnailUrl: wechatMeta.value.thumbnailUrl,
+        description: wechatMeta.value.description || '',
+        thumbnailUrl: wechatMeta.value.thumbnailUrl || '',
         sourceUrl: wechatMeta.value.sourceUrl,
-        articleAuthor: wechatMeta.value.articleAuthor,
-        publishTime: wechatMeta.value.publishTime,
+        articleAuthor: wechatMeta.value.articleAuthor || '',
+        publishTime: wechatMeta.value.publishTime || '',
         folderId: props.folderId
       }
     } else if (activeTab.value === 'image') {
@@ -363,6 +371,7 @@ const handleSubmit = async () => {
       if (imageForm.mode === 'url') {
         if (!imageForm.url) {
           ElMessage.warning('请输入图片URL')
+          submitting.value = false
           return
         }
         // 如果已经通过"获取图片"按钮预先上传，直接使用结果
@@ -376,6 +385,7 @@ const handleSubmit = async () => {
       } else {
         if (!imageForm.file) {
           ElMessage.warning('请选择图片')
+          submitting.value = false
           return
         }
         // 注意：响应拦截器已解包data，直接使用response
@@ -385,6 +395,7 @@ const handleSubmit = async () => {
 
       if (!imageResult) {
         ElMessage.error('图片处理失败，请重试')
+        submitting.value = false
         return
       }
 

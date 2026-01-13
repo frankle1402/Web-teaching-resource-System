@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const session = require('express-session');
 const { initDatabase } = require('./database/init');
 
 // 导入路由
@@ -21,6 +22,7 @@ const viewController = require('./controllers/view.controller');
 // 导入中间件
 const errorMiddleware = require('./middlewares/error.middleware');
 const authMiddleware = require('./middlewares/auth.middleware');
+const debugAuthMiddleware = require('./middlewares/debug-auth.middleware');
 
 /**
  * Express应用配置
@@ -42,11 +44,27 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Session 配置（用于跨端口登录状态同步）
+app.use(session({
+  secret: process.env.JWT_SECRET || 'default_secret_key',
+  resave: true,  // 强制保存 session
+  saveUninitialized: false,
+  cookie: {
+    secure: false,        // 开发环境使用 http
+    httpOnly: true,
+    maxAge: 30 * 24 * 60 * 60 * 1000,  // 30天
+    sameSite: 'lax'
+  }
+}));
+
 // 请求日志
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
   next();
 });
+
+// 调试中间件 - 仅对认证相关路由启用
+app.use('/api/auth', debugAuthMiddleware);
 
 // 静态文件服务
 app.use('/static', express.static(path.join(__dirname, '../public')));

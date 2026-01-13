@@ -82,6 +82,8 @@ export const favoriteAPI = {
    * @param {Object} data - 收藏数据
    * @param {string} data.type - 类型（'bilibili'|'wechat_article'|'image'）
    * @param {string} data.title - 标题
+   * @param {string} data.customTitle - 自定义标题
+   * @param {string} data.notes - 备注
    * @param {string} data.sourceUrl - 原始URL
    * @param {string} data.description - 描述
    * @param {string} data.thumbnailUrl - 封面图URL
@@ -147,6 +149,19 @@ export const favoriteAPI = {
       url: '/favorites/batch-move',
       method: 'post',
       data: { ids, folderId }
+    })
+  },
+
+  /**
+   * 检查多个资源的收藏状态
+   * @param {number[]} resourceIds - 资源ID数组
+   * @returns {Promise<{[resourceId: number]: number}>} - 资源ID到收藏ID的映射
+   */
+  checkResourceFavorites(resourceIds) {
+    return request({
+      url: '/favorites/check-resources',
+      method: 'get',
+      params: { resourceIds: resourceIds.join(',') }
     })
   },
 
@@ -216,6 +231,16 @@ export const favoriteAPI = {
     const filename = localPath.split('/').pop()
     const uuid = filename.split('.')[0]
     return `/api/favorites/images/${uuid}`
+  },
+
+  /**
+   * 获取B站图片的代理URL（解决防盗链问题）
+   * @param {string} bilibiliUrl - B站图片原始URL
+   * @returns {string} - 代理后的图片URL
+   */
+  getBilibiliImageUrl(bilibiliUrl) {
+    if (!bilibiliUrl) return ''
+    return `/api/favorites/proxy/bilibili?url=${encodeURIComponent(bilibiliUrl)}`
   },
 
   // ==================== 辅助方法 ====================

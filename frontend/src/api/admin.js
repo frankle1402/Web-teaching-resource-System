@@ -39,11 +39,11 @@ export const adminAPI = {
   /**
    * 启用/禁用用户
    */
-  updateUserStatus(id, status) {
+  updateUserStatus(id, status, reason) {
     return request({
       url: `/admin/users/${id}/status`,
       method: 'put',
-      data: { status }
+      data: { status, reason }
     })
   },
 
@@ -53,6 +53,38 @@ export const adminAPI = {
   updateUser(id, data) {
     return request({
       url: `/admin/users/${id}`,
+      method: 'put',
+      data
+    })
+  },
+
+  /**
+   * 删除用户
+   */
+  deleteUser(id) {
+    return request({
+      url: `/admin/users/${id}`,
+      method: 'delete'
+    })
+  },
+
+  /**
+   * 批量更新用户状态
+   */
+  batchUpdateUserStatus(data) {
+    return request({
+      url: '/admin/users/batch/status',
+      method: 'put',
+      data
+    })
+  },
+
+  /**
+   * 批量更新用户角色
+   */
+  batchUpdateUserRole(data) {
+    return request({
+      url: '/admin/users/batch/role',
       method: 'put',
       data
     })

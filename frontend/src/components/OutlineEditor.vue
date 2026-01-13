@@ -180,23 +180,28 @@
                 <el-option label="无媒体" value="none" />
                 <el-option label="预设图片" value="image" />
                 <el-option label="B站视频" value="video" />
+                <el-option label="公众号文章" value="article" />
               </el-select>
 
               <!-- B站视频地址输入（仅当选择B站视频时显示） -->
-              <el-input
-                v-if="section.mediaType === 'video'"
-                v-model="section.videoUrl"
-                placeholder="粘贴B站视频地址，如 https://www.bilibili.com/video/BV..."
-                size="small"
-                style="flex: 1; min-width: 300px"
-                clearable
-                @blur="handleVideoUrlChange(section)"
-              >
-                <template #prepend>B站链接</template>
-              </el-input>
+              <div v-if="section.mediaType === 'video'" class="media-input-group" style="flex: 1; min-width: 300px; display: flex; align-items: center; gap: 8px;">
+                <el-input
+                  v-model="section.videoUrl"
+                  placeholder="粘贴B站视频地址，如 https://www.bilibili.com/video/BV..."
+                  size="small"
+                  style="flex: 1"
+                  clearable
+                  @blur="handleVideoUrlChange(section)"
+                >
+                  <template #prepend>B站链接</template>
+                </el-input>
+                <el-button type="primary" size="small" @click="openResourcePicker(section, 'video')">
+                  <el-icon><Link /></el-icon> 从收藏夹添加
+                </el-button>
+              </div>
 
               <!-- 图片上传（仅当选择预设图片时显示） -->
-              <div v-if="section.mediaType === 'image'" class="image-upload-area" style="flex: 1; min-width: 300px; display: flex; align-items: center; gap: 12px;">
+              <div v-if="section.mediaType === 'image'" class="image-upload-area" style="flex: 1; min-width: 300px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                 <el-upload
                   :action="uploadUrl"
                   :headers="uploadHeaders"
@@ -206,22 +211,61 @@
                   accept="image/*"
                 >
                   <el-button type="primary" size="small">
-                    <el-icon><Upload /></el-icon> 上传图片
+                    <el-icon><Upload /></el-icon> 上传
                   </el-button>
                 </el-upload>
+                <el-input
+                  v-model="section.imageInputUrl"
+                  placeholder="或输入图片URL"
+                  size="small"
+                  style="width: 200px"
+                  clearable
+                  @blur="handleImageUrlInput(section)"
+                />
+                <!-- 图片预览 -->
                 <div v-if="section.imageUrl" class="image-preview-mini" style="display: flex; align-items: center; gap: 8px;">
                   <img :src="section.imageUrl" alt="预览" style="max-width: 60px; max-height: 40px; border-radius: 4px; object-fit: cover;" />
                   <el-input
                     v-model="section.imageCaption"
-                    placeholder="图片说明（可选）"
+                    placeholder="图片说明"
                     size="small"
-                    style="width: 150px"
+                    style="width: 120px"
                   />
-                  <el-button type="danger" size="small" link @click="section.imageUrl = ''; section.imageCaption = ''">
+                  <el-button type="danger" size="small" link @click="clearSectionImage(section)">
                     <el-icon><Delete /></el-icon>
                   </el-button>
                 </div>
-                <el-text v-else type="info" size="small">支持 JPG、PNG、GIF 格式</el-text>
+                <!-- 从收藏夹添加按钮永远在最右侧 -->
+                <el-button type="success" size="small" @click="openResourcePicker(section, 'image')" style="margin-left: auto;">
+                  <el-icon><Link /></el-icon> 从收藏夹添加
+                </el-button>
+              </div>
+
+              <!-- 公众号文章输入（仅当选择公众号文章时显示） -->
+              <div v-if="section.mediaType === 'article'" class="article-input-group" style="flex: 1; min-width: 300px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <el-input
+                  v-model="section.articleUrl"
+                  placeholder="粘贴公众号文章地址"
+                  size="small"
+                  style="width: 280px"
+                  clearable
+                  @blur="handleArticleUrlChange(section)"
+                >
+                  <template #prepend>公众号</template>
+                </el-input>
+                <!-- 公众号文章元数据显示在链接旁边 -->
+                <div v-if="section.articleTitle" class="article-preview-card" style="display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: #f5f7fa; border-radius: 4px;">
+                  <el-text size="small" :title="section.articleTitle" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ section.articleTitle }}
+                  </el-text>
+                  <el-button type="danger" size="small" link @click="section.articleUrl = ''; section.articleTitle = ''; section.articleCover = ''">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </div>
+                <!-- 从收藏夹添加按钮永远在最右侧 -->
+                <el-button type="primary" size="small" @click="openResourcePicker(section, 'article')" style="margin-left: auto;">
+                  <el-icon><Link /></el-icon> 从收藏夹添加
+                </el-button>
               </div>
             </div>
 
@@ -318,13 +362,22 @@
         题目总数超过25题限制，请减少题目数量
       </el-text>
     </el-card>
+
+    <!-- 资源选择器对话框 -->
+    <ResourcePickerDialog
+      v-model:visible="resourcePickerVisible"
+      :type="currentPickerType"
+      @confirm="handleResourcePicked"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, watch, computed } from 'vue'
-import { Plus, Delete, ArrowUp, ArrowDown, Upload } from '@element-plus/icons-vue'
+import { Plus, Delete, ArrowUp, ArrowDown, Upload, Link } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import ResourcePickerDialog from '@/components/ResourcePicker/ResourcePickerDialog.vue'
+import { favoriteAPI } from '@/api/favorite'
 
 const props = defineProps({
   modelValue: {
@@ -354,6 +407,11 @@ const localOutline = reactive({
 
 // 新增关键字输入
 const newKeyword = ref('')
+
+// 资源选择器对话框状态
+const resourcePickerVisible = ref(false)
+const currentPickerSection = ref(null)  // 当前正在编辑的章节
+const currentPickerType = ref('all')  // 'video' | 'image' | 'article'
 
 // 计算总时长
 const totalDuration = computed(() => {
@@ -389,7 +447,11 @@ watch(
           videoUrl: s.videoUrl || '',
           videoEmbedCode: s.videoEmbedCode || '',
           imageUrl: s.imageUrl || '',
+          imageInputUrl: s.imageInputUrl || '',
           imageCaption: s.imageCaption || '',
+          articleUrl: s.articleUrl || '',
+          articleTitle: s.articleTitle || '',
+          articleCover: s.articleCover || '',
           hasQuiz: s.hasQuiz || false,
           quizType: normalizeQuizType(s.quizType),
           keyPoints: s.keyPoints || []
@@ -428,7 +490,7 @@ watch(
 
 // 规范化媒体类型，确保值在下拉选项中
 function normalizeMediaType(type) {
-  const validTypes = ['none', 'image', 'video']
+  const validTypes = ['none', 'image', 'video', 'article']
   return validTypes.includes(type) ? type : 'none'
 }
 
@@ -503,7 +565,11 @@ const addSection = () => {
     videoUrl: '',
     videoEmbedCode: '',
     imageUrl: '',
+    imageInputUrl: '',
     imageCaption: '',
+    articleUrl: '',
+    articleTitle: '',
+    articleCover: '',
     hasQuiz: false,
     quizType: 'choice',
     keyPoints: []
@@ -610,27 +676,6 @@ const generateBilibiliEmbedCode = (bvid) => {
 </div>`
 }
 
-/**
- * 处理B站视频URL变化
- * @param {Object} section - 章节对象
- */
-const handleVideoUrlChange = (section) => {
-  const url = section.videoUrl?.trim()
-  if (!url) {
-    section.videoEmbedCode = ''
-    return
-  }
-
-  const bvid = extractBilibiliVideoId(url)
-  if (bvid) {
-    section.videoEmbedCode = generateBilibiliEmbedCode(bvid)
-    ElMessage.success(`已识别B站视频: ${bvid}`)
-  } else {
-    section.videoEmbedCode = ''
-    ElMessage.warning('无法识别B站视频地址，请确保包含BV号')
-  }
-}
-
 // ========== 图片上传相关 ==========
 
 /**
@@ -647,20 +692,6 @@ const uploadHeaders = computed(() => {
 })
 
 /**
- * 处理图片上传成功
- * @param {Object} response - 上传响应
- * @param {Object} section - 章节对象
- */
-const handleImageUpload = (response, section) => {
-  if (response.success && response.data?.url) {
-    section.imageUrl = response.data.url
-    ElMessage.success('图片上传成功')
-  } else {
-    ElMessage.error(response.error?.message || '图片上传失败')
-  }
-}
-
-/**
  * 处理图片上传失败
  * @param {Error} error - 错误对象
  */
@@ -668,6 +699,229 @@ const handleImageUploadError = (error) => {
   console.error('图片上传错误:', error)
   ElMessage.error('图片上传失败，请重试')
 }
+
+// ========== 资源选择器相关 ==========
+
+/**
+ * 打开资源选择器
+ * @param {Object} section - 当前章节对象
+ * @param {string} type - 资源类型 ('video' | 'image' | 'article')
+ */
+const openResourcePicker = (section, type) => {
+  currentPickerSection.value = section
+  currentPickerType.value = type
+  resourcePickerVisible.value = true
+}
+
+/**
+ * 处理资源选中
+ * @param {Object} resource - 选中的资源对象
+ */
+const handleResourcePicked = (resource) => {
+  if (!currentPickerSection.value) return
+
+  const section = currentPickerSection.value
+
+  if (resource.type === 'bilibili') {
+    // B站视频
+    section.mediaType = 'video'
+    section.videoUrl = resource.sourceUrl
+    section.videoEmbedCode = resource.embedCode
+  } else if (resource.type === 'image') {
+    // 图片
+    section.mediaType = 'image'
+    section.imageUrl = resource.localPath ? favoriteAPI.getImageUrl(resource.localPath) : resource.sourceUrl
+  } else if (resource.type === 'wechat_article') {
+    // 公众号文章
+    section.mediaType = 'article'
+    section.articleUrl = resource.sourceUrl
+    section.articleTitle = resource.title
+    section.articleCover = resource.thumbnailUrl
+  }
+
+  ElMessage.success('资源已添加')
+  currentPickerSection.value = null
+}
+
+// ========== 图片相关 ==========
+
+/**
+ * 处理图片URL输入
+ * @param {Object} section - 章节对象
+ */
+const handleImageUrlInput = async (section) => {
+  const url = section.imageInputUrl?.trim()
+  if (!url) return
+
+  try {
+    // 上传图片到服务器
+    const result = await favoriteAPI.uploadImage({ url })
+    if (result && result.localPath) {
+      section.imageUrl = favoriteAPI.getImageUrl(result.localPath)
+      ElMessage.success('图片已添加')
+
+      // 自动收藏
+      await favoriteAPI.create({
+        type: 'image',
+        title: result.originalFilename || '图片',
+        sourceUrl: url,
+        localPath: result.localPath,
+        originalFilename: result.originalFilename,
+        fileSize: result.fileSize,
+        mimeType: result.mimeType,
+        folderId: null
+      }).catch(() => {})
+    }
+  } catch (error) {
+    console.error('获取图片失败:', error)
+    // 直接使用URL
+    section.imageUrl = url
+  }
+}
+
+/**
+ * 清除章节图片
+ * @param {Object} section - 章节对象
+ */
+const clearSectionImage = (section) => {
+  section.imageUrl = ''
+  section.imageInputUrl = ''
+  section.imageCaption = ''
+}
+
+// ========== 公众号文章相关 ==========
+
+/**
+ * 处理公众号文章URL变化
+ * @param {Object} section - 章节对象
+ */
+const handleArticleUrlChange = async (section) => {
+  const url = section.articleUrl?.trim()
+  if (!url) {
+    section.articleTitle = ''
+    section.articleCover = ''
+    return
+  }
+
+  // 验证是否为公众号链接
+  if (!url.includes('mp.weixin.qq.com')) {
+    ElMessage.warning('请输入有效的微信公众号文章链接')
+    return
+  }
+
+  try {
+    // 获取公众号文章元数据
+    const meta = await favoriteAPI.fetchWechatMeta(url)
+    if (meta) {
+      section.articleTitle = meta.title
+      section.articleCover = meta.thumbnailUrl
+
+      // 自动收藏到收藏夹（未分类）
+      await autoAddToFavorite('wechat_article', meta, url)
+    }
+  } catch (error) {
+    console.error('获取公众号文章信息失败:', error)
+    // 即使获取失败也���阻止用户继续使用
+  }
+}
+
+// ========== 自动收藏功能 ==========
+
+/**
+ * 自动添加资源到收藏夹（未分类）
+ * @param {string} type - 资源类型
+ * @param {Object} meta - 元数据
+ * @param {string} url - 原始URL
+ */
+const autoAddToFavorite = async (type, meta, url) => {
+  try {
+    const favoriteData = {
+      type,
+      title: meta.title,
+      sourceUrl: url,
+      folderId: null, // 未分类
+      description: meta.description || '',
+      thumbnailUrl: meta.thumbnailUrl || ''
+    }
+
+    // B站视频特有字段
+    if (type === 'bilibili') {
+      favoriteData.bvid = meta.bvid
+      favoriteData.videoDuration = meta.videoDuration
+      favoriteData.authorName = meta.authorName
+      favoriteData.playCount = meta.playCount
+    }
+
+    // 公众号文章特有字段
+    if (type === 'wechat_article') {
+      favoriteData.articleAuthor = meta.articleAuthor
+      favoriteData.publishTime = meta.publishTime
+    }
+
+    // 调用收藏API，如果已存在会返回错误（我们静默忽略）
+    await favoriteAPI.create(favoriteData)
+    console.log('✓ 自动收藏成功:', meta.title)
+  } catch (error) {
+    // 如果是"已存在"错误，静默忽略
+    const errorMsg = error.message || error.toString()
+    if (errorMsg.includes('已收藏') || errorMsg.includes('已存在') || errorMsg.includes('FAVORITE_EXISTS')) {
+      console.log('资源已在收藏夹中，跳过')
+      return
+    }
+    console.error('自动收藏失败:', error)
+  }
+}
+
+// 更新B站视频URL处理，添加自动收藏
+const handleVideoUrlChange = (section) => {
+  const url = section.videoUrl?.trim()
+  if (!url) {
+    section.videoEmbedCode = ''
+    return
+  }
+
+  const bvid = extractBilibiliVideoId(url)
+  if (bvid) {
+    section.videoEmbedCode = generateBilibiliEmbedCode(bvid)
+    ElMessage.success(`已识别B站视频: ${bvid}`)
+
+    // 自动收藏
+    favoriteAPI.fetchBilibiliMeta(url).then(meta => {
+      autoAddToFavorite('bilibili', meta, url)
+    }).catch(err => {
+      console.error('获取B站视频元数据失败:', err)
+    })
+  } else {
+    section.videoEmbedCode = ''
+    ElMessage.warning('无法识别B站视频地址，请确保包含BV号')
+  }
+}
+
+// 更新图片上传处理，添加自动收藏
+const handleImageUpload = (response, section) => {
+  // 响应格式: { success: true, data: { localPath, originalFilename, ... } }
+  const uploadData = response.success ? response.data : response
+
+  if (uploadData && uploadData.localPath) {
+    section.imageUrl = favoriteAPI.getImageUrl(uploadData.localPath)
+    ElMessage.success('图片上传成功')
+
+    // 自动收藏图片
+    favoriteAPI.create({
+      type: 'image',
+      title: uploadData.originalFilename || '图片',
+      sourceUrl: uploadData.sourceUrl || 'local-upload',
+      localPath: uploadData.localPath,
+      originalFilename: uploadData.originalFilename,
+      fileSize: uploadData.fileSize,
+      mimeType: uploadData.mimeType,
+      folderId: null
+    }).catch(() => {})
+  } else {
+    ElMessage.error(response.error?.message || '图片上传失败')
+  }
+}
+
 </script>
 
 <style scoped>

@@ -83,5 +83,25 @@ export const authAPI = {
       url: '/auth/verify-token',
       method: 'get'
     })
+  },
+
+  /**
+   * 同步 token 到后端 session（用于跨端口登录状态同步）
+   */
+  syncToken() {
+    return request({
+      url: '/auth/sync-token',
+      method: 'post'
+    })
+  },
+
+  /**
+   * 清除后端 session 中的 token
+   */
+  clearSessionToken() {
+    return request({
+      url: '/auth/session-token',
+      method: 'delete'
+    })
   }
 }

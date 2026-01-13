@@ -126,7 +126,8 @@ class AdminController {
       const offset = (page - 1) * pageSize;
       const users = db.prepare(`
         SELECT
-          id, phone, nickname, avatar_url, role, status,
+          id, phone, nickname, avatar_url, real_name, organization, role, status,
+          disabled_at, disabled_by, disabled_reason,
           created_at, last_login
         FROM users
         ${whereClause}
@@ -173,7 +174,7 @@ class AdminController {
   async updateUserStatus(req, res) {
     try {
       const { id } = req.params;
-      const { status } = req.body; // 1=启用, 0=禁用
+      const { status, reason } = req.body; // 1=启用, 0=禁用
 
       if (![0, 1].includes(parseInt(status))) {
         return res.status(400).json({
@@ -209,14 +210,29 @@ class AdminController {
         });
       }
 
-      db.prepare('UPDATE users SET status = ? WHERE id = ?').run([status, id]);
+      if (status === 0) {
+        // 禁用用户 - 记录禁用原因
+        db.prepare(`
+          UPDATE users
+          SET status = 0, disabled_at = datetime('now', '+8 hours'), disabled_by = ?, disabled_reason = ?
+          WHERE id = ?
+        `).run([req.user.id, reason || '', id]);
+      } else {
+        // 启用用户 - 清除禁用信息
+        db.prepare(`
+          UPDATE users
+          SET status = 1, disabled_at = NULL, disabled_by = NULL, disabled_reason = NULL
+          WHERE id = ?
+        `).run([id]);
+      }
       saveDatabase();
 
       // 记录操作日志
       await this._logAction(db, req.user.id, status === 1 ? 'enable_user' : 'disable_user', 'user', id, {
         targetUser: user.phone,
         previousStatus: user.status,
-        newStatus: status
+        newStatus: status,
+        reason: status === 0 ? reason : null
       });
 
       console.log(`✓ 管理员 ${req.user.phone} ${status === 1 ? '启用' : '禁用'}了用户 ${user.phone}`);
@@ -243,7 +259,21 @@ class AdminController {
   async updateUser(req, res) {
     try {
       const { id } = req.params;
-      const { nickname, role } = req.body;
+      const {
+        nickname,
+        role,
+        real_name,
+        // 教师字段
+        organization,
+        teacher_title,
+        teacher_field,
+        // 学生字段
+        student_school,
+        student_major,
+        student_class,
+        student_grade,
+        student_level
+      } = req.body;
 
       const db = await getDB();
       const user = db.prepare('SELECT * FROM users WHERE id = ?').get([id]);
@@ -273,26 +303,73 @@ class AdminController {
       const updateFields = [];
       const updateParams = [];
 
+      // 通用字段
       if (nickname !== undefined) {
         updateFields.push('nickname = ?');
-        updateParams.push(nickname);
+        updateParams.push(nickname || null);
+      }
+      if (real_name !== undefined) {
+        updateFields.push('real_name = ?');
+        updateParams.push(real_name);
       }
 
-      if (role !== undefined && ['admin', 'user'].includes(role)) {
+      // 支持的角色：admin, teacher, student
+      if (role !== undefined && ['admin', 'teacher', 'student'].includes(role)) {
         updateFields.push('role = ?');
         updateParams.push(role);
       }
 
+      // 教师字段
+      if (organization !== undefined) {
+        updateFields.push('organization = ?');
+        updateParams.push(organization || null);
+      }
+      if (teacher_title !== undefined) {
+        updateFields.push('teacher_title = ?');
+        updateParams.push(teacher_title || null);
+      }
+      if (teacher_field !== undefined) {
+        updateFields.push('teacher_field = ?');
+        updateParams.push(teacher_field || null);
+      }
+
+      // 学生字段
+      if (student_school !== undefined) {
+        updateFields.push('student_school = ?');
+        updateParams.push(student_school || null);
+      }
+      if (student_major !== undefined) {
+        updateFields.push('student_major = ?');
+        updateParams.push(student_major || null);
+      }
+      if (student_class !== undefined) {
+        updateFields.push('student_class = ?');
+        updateParams.push(student_class || null);
+      }
+      if (student_grade !== undefined) {
+        updateFields.push('student_grade = ?');
+        updateParams.push(student_grade || null);
+      }
+      if (student_level !== undefined) {
+        updateFields.push('student_level = ?');
+        updateParams.push(student_level || null);
+      }
+
       if (updateFields.length > 0) {
         updateParams.push(id);
-        db.prepare(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`).run(updateParams);
+        const sql = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
+        console.log('更新用户SQL:', sql);
+        console.log('更新参数:', updateParams);
+        db.prepare(sql).run(updateParams);
         saveDatabase();
 
         // 记录操作日志
         await this._logAction(db, req.user.id, 'update_user', 'user', id, {
           targetUser: user.phone,
-          changes: { nickname, role }
+          changes: { nickname, role, real_name }
         });
+
+        console.log(`✓ 用户 ${user.phone} 信息已更新`);
       }
 
       // 获取更新后的用户
@@ -315,19 +392,115 @@ class AdminController {
   }
 
   /**
+   * 删除用户（物理删除）
+   */
+  async deleteUser(req, res) {
+    try {
+      const { id } = req.params;
+
+      const db = await getDB();
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get([id]);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'USER_NOT_FOUND',
+            message: '用户不存在'
+          }
+        });
+      }
+
+      // 不允许删除自己
+      if (user.id === req.user.id) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'CANNOT_DELETE_SELF',
+            message: '不能删除自己'
+          }
+        });
+      }
+
+      // 检查用户是否有资源
+      const resourceCount = db.prepare('SELECT COUNT(*) as count FROM resources WHERE user_id = ?').get([id]).count;
+      if (resourceCount > 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'USER_HAS_RESOURCES',
+            message: `该用户有 ${resourceCount} 个资源，无法删除。请先转移或删除这些资源。`
+          }
+        });
+      }
+
+      // 删��用户相关的收藏记录
+      db.prepare('DELETE FROM favorites WHERE user_id = ?').run([id]);
+
+      // 删除用户
+      db.prepare('DELETE FROM users WHERE id = ?').run([id]);
+
+      // 记录操作日志
+      await this._logAction(db, req.user.id, 'delete_user', 'user', id, {
+        targetUser: user.phone,
+        targetUserName: user.real_name,
+        deletedRole: user.role
+      });
+
+      console.log(`✓ 管理员 ${req.user.phone} 删除了用户 ${user.phone}`);
+
+      res.json({
+        success: true,
+        message: '用户已删除'
+      });
+    } catch (error) {
+      console.error('删除用户错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'DELETE_USER_ERROR',
+          message: '删除用户失败'
+        }
+      });
+    }
+  }
+
+  /**
    * 创建新用户（管理员功能）
    */
   async createUser(req, res) {
     try {
-      const { phone, real_name, nickname, organization, avatar_url, role } = req.body;
+      const {
+        phone,
+        real_name,
+        nickname,
+        avatar_url,
+        role
+      } = req.body;
+
+      // 教师字段
+      const {
+        organization,
+        teacher_title,
+        teacher_field
+      } = req.body;
+
+      // 学生字段
+      const {
+        student_school,
+        student_major,
+        student_class,
+        student_grade,
+        student_level
+      } = req.body;
 
       // 验证必填字段
-      if (!phone || !real_name || !organization) {
+      if (!phone || !real_name) {
         return res.status(400).json({
           success: false,
           error: {
             code: 'MISSING_REQUIRED_FIELDS',
-            message: '请填写手机号、真实姓名和单位/机构'
+            message: '请填写手机号和真实姓名'
           }
         });
       }
@@ -343,13 +516,35 @@ class AdminController {
         });
       }
 
-      // 验证角色
-      if (role && !['admin', 'user'].includes(role)) {
+      // 验证角色：支持 admin, teacher, student
+      if (!role || !['admin', 'teacher', 'student'].includes(role)) {
         return res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_ROLE',
-            message: '角色只能是 admin 或 user'
+            message: '角色只能是 admin、teacher 或 student'
+          }
+        });
+      }
+
+      // 教师必须填写单位/机构
+      if (role === 'teacher' && !organization) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'MISSING_REQUIRED_FIELDS',
+            message: '教师必须填写单位/机构'
+          }
+        });
+      }
+
+      // 学生必须填写学校
+      if (role === 'student' && !student_school) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'MISSING_REQUIRED_FIELDS',
+            message: '学生必须填写学校'
           }
         });
       }
@@ -372,26 +567,104 @@ class AdminController {
       const { v4: uuidv4 } = require('uuid');
       const openid = uuidv4();
 
-      // 插入新用户
-      const result = db.prepare(`
-        INSERT INTO users (openid, phone, real_name, nickname, organization, avatar_url, role, profile_completed, created_at, last_login)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, datetime('now', '+8 hours'), datetime('now', '+8 hours'))
-      `).run([openid, phone, real_name, nickname || real_name, organization, avatar_url || null, role || 'user']);
+      // 构建插入字段和值 - 分离固定字段、SQL函数字段和动态字段
+      const fixedFields = ['openid', 'phone', 'real_name', 'role', 'profile_completed'];
+      const fixedValues = [openid, phone, real_name, role, 1];
 
-      saveDatabase();
+      const sqlFields = ['created_at', 'last_login'];
+      const sqlValues = ["datetime('now', '+8 hours')", "datetime('now', '+8 hours')"];
+
+      const dynamicFields = [];
+      const dynamicValues = [];
+
+      // 可选字段
+      if (nickname) {
+        dynamicFields.push('nickname');
+        dynamicValues.push(nickname);
+      }
+      if (avatar_url) {
+        dynamicFields.push('avatar_url');
+        dynamicValues.push(avatar_url);
+      }
+
+      // 教师字段
+      if (role === 'teacher') {
+        dynamicFields.push('organization');
+        dynamicValues.push(organization);
+
+        if (teacher_title) {
+          dynamicFields.push('teacher_title');
+          dynamicValues.push(teacher_title);
+        }
+        if (teacher_field) {
+          dynamicFields.push('teacher_field');
+          dynamicValues.push(teacher_field);
+        }
+      }
+
+      // 学生字段
+      if (role === 'student') {
+        if (student_school) {
+          dynamicFields.push('student_school');
+          dynamicValues.push(student_school);
+        }
+
+        if (student_major) {
+          dynamicFields.push('student_major');
+          dynamicValues.push(student_major);
+        }
+        if (student_class) {
+          dynamicFields.push('student_class');
+          dynamicValues.push(student_class);
+        }
+        if (student_grade) {
+          dynamicFields.push('student_grade');
+          dynamicValues.push(student_grade);
+        }
+        if (student_level) {
+          dynamicFields.push('student_level');
+          dynamicValues.push(student_level);
+        }
+      }
+
+      // 合并所有字段
+      const allFields = [...fixedFields, ...sqlFields, ...dynamicFields];
+
+      // 构建VALUES部分 - 固定字段用?，SQL字段直接用函数，动态字段用?
+      const placeholderParts = [
+        fixedValues.map(() => '?'),
+        sqlValues,
+        dynamicValues.map(() => '?')
+      ].filter(part => part.length > 0); // 过滤掉空数组
+
+      const placeholders = placeholderParts.map(part =>
+        Array.isArray(part) ? part.join(',') : part
+      ).join(',');
+
+      const allValues = [...fixedValues, ...dynamicValues];
+
+      // 插入新用户
+      const sql = `
+        INSERT INTO users (${allFields.join(', ')})
+        VALUES (${placeholders})
+      `;
+
+      console.log('创建用户SQL:', sql);
+      console.log('参数值:', allValues);
+
+      const result = db.prepare(sql).run(allValues);
 
       // 获取新创建的用户
       const newUser = db.prepare('SELECT * FROM users WHERE id = ?').get([result.lastInsertRowid]);
 
       // 记录操作日志
-      await this._logAction(db, req.user.id, 'create_user', 'user', newUser.id, {
-        phone,
-        real_name,
-        organization,
-        role: role || 'user'
-      });
-
-      console.log(`✓ 管理员 ${req.user.phone} 创建了新用户 ${phone}`);
+      if (newUser && newUser.id) {
+        await this._logAction(db, req.user.id, 'create_user', 'user', newUser.id, {
+          phone,
+          real_name,
+          role
+        });
+      }
 
       res.json({
         success: true,
@@ -792,6 +1065,230 @@ class AdminController {
         error: {
           code: 'FORCE_UNPUBLISH_ERROR',
           message: '强制下架失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * 批量更新用户状态
+   */
+  async batchUpdateUserStatus(req, res) {
+    try {
+      const { userIds, status, reason } = req.body;
+
+      // 验证参数
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_USER_IDS',
+            message: '请选择要操作的用户'
+          }
+        });
+      }
+
+      if (![0, 1].includes(parseInt(status))) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_STATUS',
+            message: '状态值无效'
+          }
+        });
+      }
+
+      const db = await getDB();
+      const currentAdminId = req.user.id;
+
+      // 过滤掉自己的ID
+      const filteredUserIds = userIds.filter(id => parseInt(id) !== currentAdminId);
+
+      if (filteredUserIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'CANNOT_OPERATE_SELF',
+            message: '不能对自己进行批量操作'
+          }
+        });
+      }
+
+      // 检查是否包含自己
+      const hasSelf = userIds.some(id => parseInt(id) === currentAdminId);
+      if (hasSelf) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INCLUDES_SELF',
+            message: '批量操作不能包含当前管理员'
+          }
+        });
+      }
+
+      // 获取要操作的用户信息
+      const placeholders = filteredUserIds.map(() => '?').join(',');
+      const users = db.prepare(`SELECT * FROM users WHERE id IN (${placeholders})`).all(filteredUserIds);
+
+      if (users.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'USERS_NOT_FOUND',
+            message: '未找到指定的用户'
+          }
+        });
+      }
+
+      // 执行批量更新
+      if (status === 0) {
+        // 批量禁用
+        db.prepare(`
+          UPDATE users
+          SET status = 0, disabled_at = datetime('now', '+8 hours'), disabled_by = ?, disabled_reason = ?
+          WHERE id IN (${placeholders})
+        `).run([currentAdminId, reason || '', ...filteredUserIds]);
+      } else {
+        // 批量启用
+        db.prepare(`
+          UPDATE users
+          SET status = 1, disabled_at = NULL, disabled_by = NULL, disabled_reason = NULL
+          WHERE id IN (${placeholders})
+        `).run(filteredUserIds);
+      }
+      saveDatabase();
+
+      // 记录操作日志
+      await this._logAction(db, currentAdminId, status === 1 ? 'batch_enable_user' : 'batch_disable_user', 'user', null, {
+        userIds: filteredUserIds,
+        count: filteredUserIds.length,
+        reason: status === 0 ? reason : null
+      });
+
+      console.log(`✓ 管理员 ${req.user.phone} 批量${status === 1 ? '启用' : '禁用'}了 ${filteredUserIds.length} 个用户`);
+
+      res.json({
+        success: true,
+        message: `已${status === 1 ? '启用' : '禁用'} ${filteredUserIds.length} 个用户`,
+        data: {
+          count: filteredUserIds.length
+        }
+      });
+    } catch (error) {
+      console.error('批量更新用户状态错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'BATCH_UPDATE_STATUS_ERROR',
+          message: '批量操作失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * 批量更新用户角色
+   */
+  async batchUpdateUserRole(req, res) {
+    try {
+      const { userIds, role } = req.body;
+
+      // 验证参数
+      if (!Array.isArray(userIds) || userIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_USER_IDS',
+            message: '请选择要操作的用户'
+          }
+        });
+      }
+
+      // 验证角色
+      if (!['admin', 'teacher', 'student'].includes(role)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_ROLE',
+            message: '角色只能是 admin、teacher 或 student'
+          }
+        });
+      }
+
+      const db = await getDB();
+      const currentAdminId = req.user.id;
+
+      // 过滤掉自己的ID
+      const filteredUserIds = userIds.filter(id => parseInt(id) !== currentAdminId);
+
+      if (filteredUserIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'CANNOT_OPERATE_SELF',
+            message: '不能对自己进行批量操作'
+          }
+        });
+      }
+
+      // 检查是否包含自己
+      const hasSelf = userIds.some(id => parseInt(id) === currentAdminId);
+      if (hasSelf) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INCLUDES_SELF',
+            message: '批量操作不能包含当前管理员'
+          }
+        });
+      }
+
+      // 获取要操作的用户信息
+      const placeholders = filteredUserIds.map(() => '?').join(',');
+      const users = db.prepare(`SELECT * FROM users WHERE id IN (${placeholders})`).all(filteredUserIds);
+
+      if (users.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'USERS_NOT_FOUND',
+            message: '未找到指定的用户'
+          }
+        });
+      }
+
+      // 执行批量更新
+      db.prepare(`
+        UPDATE users
+        SET role = ?
+        WHERE id IN (${placeholders})
+      `).run([role, ...filteredUserIds]);
+      saveDatabase();
+
+      // 记录操作日志
+      await this._logAction(db, currentAdminId, 'batch_update_role', 'user', null, {
+        userIds: filteredUserIds,
+        count: filteredUserIds.length,
+        newRole: role
+      });
+
+      console.log(`✓ 管理员 ${req.user.phone} 批量修改了 ${filteredUserIds.length} 个用户的角色为 ${role}`);
+
+      res.json({
+        success: true,
+        message: `已修改 ${filteredUserIds.length} 个用户的角色`,
+        data: {
+          count: filteredUserIds.length,
+          role
+        }
+      });
+    } catch (error) {
+      console.error('批量更新用户角色错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'BATCH_UPDATE_ROLE_ERROR',
+          message: '批量操作失败'
         }
       });
     }

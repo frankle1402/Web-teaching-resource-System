@@ -19,30 +19,30 @@
           <span>个人中心</span>
         </el-menu-item>
 
-        <el-menu-item index="/dashboard/resources">
+        <!-- 教师和管理员可以管理资源 -->
+        <el-menu-item v-if="!isStudent" index="/dashboard/resources">
           <el-icon><Document /></el-icon>
           <span>我的资源</span>
         </el-menu-item>
 
-        <!-- 教师和管理员可以创建资源 -->
         <el-menu-item v-if="!isStudent" index="/dashboard/resources/create">
           <el-icon><Plus /></el-icon>
           <span>创建资源</span>
         </el-menu-item>
 
-        <el-menu-item index="/dashboard/templates">
+        <el-menu-item v-if="!isStudent" index="/dashboard/templates">
           <el-icon><Grid /></el-icon>
           <span>模板中心</span>
-        </el-menu-item>
-
-        <el-menu-item index="/dashboard/view-history">
-          <el-icon><Clock /></el-icon>
-          <span>浏览记录</span>
         </el-menu-item>
 
         <el-menu-item index="/dashboard/favorites">
           <el-icon><Star /></el-icon>
           <span>我的收藏</span>
+        </el-menu-item>
+
+        <el-menu-item index="/dashboard/view-history">
+          <el-icon><Clock /></el-icon>
+          <span>浏览记录</span>
         </el-menu-item>
 
         <el-menu-item index="/dashboard/help">

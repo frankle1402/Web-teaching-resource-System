@@ -6,7 +6,8 @@ import { ElMessage } from 'element-plus'
  */
 const request = axios.create({
   baseURL: '/api',
-  timeout: 600000, // 600秒超时（10分钟），适配AI生成长内容
+  timeout: 600000, // 600秒超���（10分钟），适配AI生成长内容
+  withCredentials: true, // 跨域请求携带Cookie，用于Session同步
   headers: {
     'Content-Type': 'application/json'
   }

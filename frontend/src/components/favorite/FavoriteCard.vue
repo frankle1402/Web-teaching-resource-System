@@ -15,14 +15,16 @@
     <!-- 封面/缩略图 -->
     <div class="card-thumbnail">
       <img
-        v-if="favorite.thumbnail_url"
-        :src="favorite.thumbnail_url"
+        v-if="thumbnailSrc"
+        :src="thumbnailSrc"
         :alt="favorite.title"
+        @error="handleImageError"
       />
       <div v-else class="no-thumbnail">
         <el-icon class="type-icon" :class="favorite.type">
           <VideoPlay v-if="favorite.type === 'bilibili'" />
           <ChatLineSquare v-else-if="favorite.type === 'wechat_article'" />
+          <Document v-else-if="favorite.type === 'resource'" />
           <Picture v-else />
         </el-icon>
       </div>
@@ -40,7 +42,15 @@
 
     <!-- 内容 -->
     <div class="card-content">
-      <h4 class="card-title" :title="favorite.title">{{ favorite.title }}</h4>
+      <h4 class="card-title" :title="displayTitle">{{ displayTitle }}</h4>
+      <p v-if="favorite.custom_title" class="original-title" :title="favorite.title">
+        原标题：{{ favorite.title }}
+      </p>
+
+      <!-- 备注信息（前100字） -->
+      <p v-if="favorite.notes" class="card-notes" :title="favorite.notes">
+        {{ truncatedNotes }}
+      </p>
 
       <div class="card-meta">
         <span v-if="favorite.author_name" class="meta-item">
@@ -72,6 +82,9 @@
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item command="edit">
+                  <el-icon><Edit /></el-icon> 编辑
+                </el-dropdown-item>
                 <el-dropdown-item command="visit">
                   <el-icon><Link /></el-icon> 访问原链接
                 </el-dropdown-item>
@@ -91,10 +104,10 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import {
   VideoPlay, ChatLineSquare, Picture, User, View,
-  Select, MoreFilled, Link, FolderAdd, Delete
+  Select, MoreFilled, Link, FolderAdd, Delete, Edit, Document
 } from '@element-plus/icons-vue'
 import { favoriteAPI } from '@/api/favorite'
 
@@ -109,13 +122,54 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select', 'click', 'delete', 'move', 'insert'])
+const emit = defineEmits(['select', 'click', 'delete', 'move', 'insert', 'edit'])
+
+// 图片加载失败标记
+const imageLoadFailed = ref(false)
+
+// 显示标题（优先自定义标题）
+const displayTitle = computed(() => {
+  return props.favorite.custom_title || props.favorite.title
+})
+
+// 截断的备注（前100字）
+const truncatedNotes = computed(() => {
+  if (!props.favorite.notes) return ''
+  return props.favorite.notes.length > 100
+    ? props.favorite.notes.substring(0, 100) + '...'
+    : props.favorite.notes
+})
+
+// 计算缩略图URL
+const thumbnailSrc = computed(() => {
+  // 如果图片加载失败，返回空
+  if (imageLoadFailed.value) return ''
+
+  // 对于图片类型，优先使用local_path
+  if (props.favorite.type === 'image' && props.favorite.local_path) {
+    return favoriteAPI.getImageUrl(props.favorite.local_path)
+  }
+
+  // 对于B站视频，使用代理获取图片（解决防盗链问题）
+  if (props.favorite.type === 'bilibili' && props.favorite.thumbnail_url) {
+    return favoriteAPI.getBilibiliImageUrl(props.favorite.thumbnail_url)
+  }
+
+  // 其他类型直接返回thumbnail_url
+  return props.favorite.thumbnail_url || ''
+})
+
+// 图片加载错误处理
+const handleImageError = () => {
+  imageLoadFailed.value = true
+}
 
 const typeName = computed(() => {
   const typeMap = {
     bilibili: 'B站视频',
     wechat_article: '公众号',
-    image: '图片'
+    image: '图片',
+    resource: '课件资源'
   }
   return typeMap[props.favorite.type] || '未知'
 })
@@ -148,6 +202,9 @@ const formatDate = (dateStr) => {
 
 const handleCommand = (command) => {
   switch (command) {
+    case 'edit':
+      emit('edit', props.favorite)
+      break
     case 'visit':
       window.open(props.favorite.source_url, '_blank')
       break
@@ -236,6 +293,10 @@ const handleCommand = (command) => {
   color: #3b82f6;
 }
 
+.type-icon.resource {
+  color: #8b5cf6;
+}
+
 .type-badge {
   position: absolute;
   top: 8px;
@@ -259,6 +320,10 @@ const handleCommand = (command) => {
   background: #3b82f6;
 }
 
+.type-badge.resource {
+  background: #8b5cf6;
+}
+
 .duration-badge {
   position: absolute;
   bottom: 8px;
@@ -275,10 +340,34 @@ const handleCommand = (command) => {
 }
 
 .card-title {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   font-size: 14px;
   font-weight: 500;
   color: #1e293b;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.original-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-notes {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: #64748b;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;

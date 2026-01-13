@@ -122,8 +122,9 @@ class AuthController {
    */
   async logout(req, res) {
     try {
-      // MVP阶段，退出登录只需返回成功即可
-      // 真实场景可能需要将Token加入黑名单
+      // 清除 Cookie
+      res.clearCookie('auth_token');
+
       res.json({
         success: true,
         message: '退出成功'
@@ -272,35 +273,40 @@ class AuthController {
         });
       }
 
-      // 清除已使用的验证码
-      verificationCodes.delete(phone);
+      // 注意：这里不立即清除验证码，让用户完成注册后再清除
+      // 为新用户生成一个临时的注册token（15分钟有效）
+      const registerToken = jwt.sign(
+        { phone, code, type: 'register' },
+        process.env.JWT_SECRET || 'default_secret_key',
+        { expiresIn: '15m' }
+      );
 
       const db = await getDB();
 
       // 查找用户是否存在
       let user = db.prepare('SELECT * FROM users WHERE phone = ?').get([phone]);
-      let isNewUser = false;
 
       if (!user) {
-        // 用户不存在，标记为新用户（不自动创建，等待注册流程）
-        isNewUser = true;
-
-        // 返回需要注册的响应
+        // 用户不存在，返回需要注册的响应（带注册token）
         return res.json({
           success: true,
           data: {
             isNewUser: true,
-            phone: phone
+            phone: phone,
+            registerToken: registerToken  // 临时注册token
           },
           message: '新用户，请完成注册'
         });
-      } else {
-        // 更新最后登录时间
-        db.prepare("UPDATE users SET last_login = datetime('now', '+8 hours') WHERE id = ?").run([user.id]);
-        saveDatabase();
-
-        console.log(`✓ 用户登录: ${phone}, 角色: ${user.role || 'teacher'}`);
       }
+
+      // 用户存在，清除验证码并登录
+      verificationCodes.delete(phone);
+
+      // 更新最后登录时间
+      db.prepare("UPDATE users SET last_login = datetime('now', '+8 hours') WHERE id = ?").run([user.id]);
+      saveDatabase();
+
+      console.log(`✓ 用户登录: ${phone}, 角色: ${user.role || 'teacher'}`);
 
       // 生成JWT Token
       const token = jwt.sign(
@@ -316,6 +322,15 @@ class AuthController {
 
       // 判断是否需要完善资料
       const needCompleteProfile = !user.profile_completed || user.profile_completed === 0;
+
+      // 设置 Cookie（供容器页面使用）
+      // Cookie 会被发送到 localhost:8080，容器页面可以直接读取
+      res.cookie('auth_token', token, {
+        httpOnly: false,  // 允许 JavaScript 读取
+        secure: false,    // 开发环境使用 http
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000  // 30天
+      });
 
       res.json({
         success: true,
@@ -348,6 +363,7 @@ class AuthController {
       const {
         phone,
         code,
+        registerToken,  // 使用registerToken替代code验证
         role,
         real_name,
         nickname,
@@ -364,38 +380,58 @@ class AuthController {
         student_level
       } = req.body;
 
-      // 验证手机号格式
-      if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
-        return res.status(400).json({
-          success: false,
-          error: { code: 'INVALID_PHONE', message: '请输入正确的手机号格式' }
-        });
-      }
+      // 解析registerToken获取phone和code（如果提供了registerToken）
+      let validatedPhone = phone;
+      let validatedCode = code;
 
-      // 验证验证码
-      if (!code || code.length !== 6) {
-        return res.status(400).json({
-          success: false,
-          error: { code: 'INVALID_CODE', message: '请输入正确的验证码' }
-        });
-      }
+      if (registerToken) {
+        try {
+          const decoded = jwt.verify(registerToken, process.env.JWT_SECRET || 'default_secret_key');
+          if (decoded.type === 'register') {
+            validatedPhone = decoded.phone;
+            validatedCode = decoded.code;
+          }
+        } catch (e) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_TOKEN', message: '注册令牌无效或已过期，请重新获取验证码' }
+          });
+        }
+      } else {
+        // 如果没有registerToken，则按原流程验证验证码
+        // 验证手机号格式
+        if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_PHONE', message: '请输入正确的手机号格式' }
+          });
+        }
 
-      // 检查验证码是否正确
-      const storedCode = verificationCodes.get(phone);
-      if (!storedCode || storedCode.code !== code) {
-        return res.status(400).json({
-          success: false,
-          error: { code: 'CODE_MISMATCH', message: '验证码错误或已过期' }
-        });
-      }
+        // 验证验证码
+        if (!code || code.length !== 6) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'INVALID_CODE', message: '请输入正确的验证码' }
+          });
+        }
 
-      // 检查验证码是否过期
-      if (storedCode.expireAt < Date.now()) {
-        verificationCodes.delete(phone);
-        return res.status(400).json({
-          success: false,
-          error: { code: 'CODE_EXPIRED', message: '验证码已过期，请重新获取' }
-        });
+        // 检查验证码是否正确
+        const storedCode = verificationCodes.get(phone);
+        if (!storedCode || storedCode.code !== code) {
+          return res.status(400).json({
+            success: false,
+            error: { code: 'CODE_MISMATCH', message: '验证码错误或已过期' }
+          });
+        }
+
+        // 检查验证码是否过期
+        if (storedCode.expireAt < Date.now()) {
+          verificationCodes.delete(phone);
+          return res.status(400).json({
+            success: false,
+            error: { code: 'CODE_EXPIRED', message: '验证码已过期，请重新获取' }
+          });
+        }
       }
 
       // 验证角色
@@ -433,7 +469,7 @@ class AuthController {
       const db = await getDB();
 
       // 检查用户是否已存在
-      const existingUser = db.prepare('SELECT id FROM users WHERE phone = ?').get([phone]);
+      const existingUser = db.prepare('SELECT id FROM users WHERE phone = ?').get([validatedPhone]);
       if (existingUser) {
         return res.status(400).json({
           success: false,
@@ -442,7 +478,7 @@ class AuthController {
       }
 
       // 清除验证码
-      verificationCodes.delete(phone);
+      verificationCodes.delete(validatedPhone);
 
       // 创建用户
       const openid = uuidv4();
@@ -461,7 +497,7 @@ class AuthController {
           datetime('now', '+8 hours'), datetime('now', '+8 hours')
         )
       `).run([
-        openid, phone, nickname || real_name, avatar_url || null, real_name, organization || null,
+        openid, validatedPhone, nickname || real_name, avatar_url || null, real_name, organization || null,
         role,
         teacher_title || null, teacher_field || null,
         student_school || null, student_major || null, student_class || null, student_grade || null, student_level || null
@@ -470,7 +506,7 @@ class AuthController {
       const user = db.prepare('SELECT * FROM users WHERE id = ?').get([result.lastInsertRowid]);
       saveDatabase();
 
-      console.log(`✓ 新用户注册成功: ${phone}, 角色: ${role}`);
+      console.log(`✓ 新用户注册成功: ${validatedPhone}, 角色: ${role}`);
 
       // 生成JWT Token
       const token = jwt.sign(
@@ -483,6 +519,14 @@ class AuthController {
           expiresIn: '30d'
         }
       );
+
+      // 设置 Cookie（供容器页面使用）
+      res.cookie('auth_token', token, {
+        httpOnly: false,
+        secure: false,
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000
+      });
 
       res.json({
         success: true,
@@ -632,6 +676,77 @@ class AuthController {
       res.status(500).json({
         success: false,
         error: { code: 'COMPLETE_PROFILE_ERROR', message: '完善资料失败，请稍后重试' }
+      });
+    }
+  }
+
+  /**
+   * 同步 token 到 session（用于跨端口登录状态同步）
+   * POST /api/auth/sync-token
+   */
+  async syncToken(req, res) {
+    try {
+      // 将 token 和用户信息存入 session
+      req.session.authToken = req.token;
+      req.session.userInfo = req.user;
+
+      // 强制保存 session
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session 保存失败:', err);
+        } else {
+          console.log(`✓ Token 已同步到 session: ${req.user.phone}, token: ${req.token ? req.token.substring(0, 20) + '...' : '无'}`);
+        }
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('同步 token 失败:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'SYNC_ERROR', message: '同步失败' }
+      });
+    }
+  }
+
+  /**
+   * 获取 session 中的 token（容器页面调用）
+   * GET /api/auth/session-token
+   */
+  async getSessionToken(req, res) {
+    try {
+      if (req.session.authToken) {
+        res.json({
+          success: true,
+          data: {
+            token: req.session.authToken,
+            user: req.session.userInfo
+          }
+        });
+      } else {
+        res.json({ success: false, data: null });
+      }
+    } catch (error) {
+      console.error('获取 session token 失败:', error);
+      res.json({ success: false, data: null });
+    }
+  }
+
+  /**
+   * 清除 session 中的 token（退出登录时调用）
+   * DELETE /api/auth/session-token
+   */
+  async clearSessionToken(req, res) {
+    try {
+      req.session.authToken = null;
+      req.session.userInfo = null;
+      console.log('✓ Session token 已清除');
+      res.json({ success: true });
+    } catch (error) {
+      console.error('清除 session token 失败:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'CLEAR_ERROR', message: '清除失败' }
       });
     }
   }

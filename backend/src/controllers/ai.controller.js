@@ -48,12 +48,7 @@ function processImagePlaceholders(htmlContent, sections) {
 
   for (const section of sections) {
     if (section.mediaType === 'image' && section.imageUrl) {
-      // 匹配占位符，支持多种格式
-      const placeholderPatterns = [
-        `<!-- IMAGE_PLACEHOLDER:${section.id} -->`,
-        `<!--IMAGE_PLACEHOLDER:${section.id}-->`,
-        `<!-- IMAGE_PLACEHOLDER:${section.id}`,  // 部分匹配带描述的
-      ];
+      console.log(`处理图片占位符: ${section.id}, imageUrl: ${section.imageUrl}`);
 
       // 生成替换用的图片HTML（带放大功能）
       const imageHtml = `
@@ -68,29 +63,29 @@ function processImagePlaceholders(htmlContent, sections) {
   </p>
 </div>`;
 
-      // 替换占位符
-      for (const placeholder of placeholderPatterns) {
-        if (result.includes(placeholder)) {
-          // 如果是部分匹配，需要找到完整的注释并替换
-          if (placeholder.endsWith(':' + section.id)) {
-            const fullPattern = new RegExp(`<!-- IMAGE_PLACEHOLDER:${section.id}[^>]*-->`, 'g');
-            result = result.replace(fullPattern, imageHtml);
-          } else {
-            result = result.replace(placeholder, imageHtml);
-          }
+      // 尝试多种占位符格式
+      const patterns = [
+        new RegExp(`<!-- IMAGE_PLACEHOLDER:${section.id} -->`, 'g'),
+        new RegExp(`<!--IMAGE_PLACEHOLDER:${section.id}-->`, 'g'),
+        new RegExp(`<!-- IMAGE_PLACEHOLDER:${section.id}[^>]*-->`, 'g'),
+        // 带div的占位符
+        new RegExp(`<div class="image-placeholder"[^>]*data-image-id="${section.id}"[^>]*>[\\s\\S]*?</div>\\s*<!-- IMAGE_PLACEHOLDER:${section.id}[^>]*-->`, 'g'),
+      ];
+
+      let replaced = false;
+      for (const pattern of patterns) {
+        if (pattern.test(result)) {
+          // 重置正则表达式的lastIndex
+          pattern.lastIndex = 0;
+          result = result.replace(pattern, imageHtml);
           console.log(`✓ 已替换图片占位符: ${section.id}`);
+          replaced = true;
           break;
         }
       }
 
-      // 同时替换带 data-image-id 的占位符div
-      const divPattern = new RegExp(
-        `<div class="image-placeholder"[^>]*data-image-id="${section.id}"[^>]*>[\\s\\S]*?</div>\\s*<!-- IMAGE_PLACEHOLDER:${section.id}[^>]*-->`,
-        'g'
-      );
-      if (divPattern.test(result)) {
-        result = result.replace(divPattern, imageHtml);
-        console.log(`✓ 已替换图片占位符div: ${section.id}`);
+      if (!replaced) {
+        console.log(`⚠ 未找到图片占位符: ${section.id}`);
       }
     }
   }
@@ -752,6 +747,37 @@ ${teachingMethodPrompt}
 .tr-resource-container .content-card { ... }
 .tr-resource-container .btn-primary-custom { ... }
 
+【Bootstrap组件样式覆盖规范（重要）】
+⚠️ Bootstrap 5的默认样式是为浅色主题设计的，必须显式覆盖才能适配深色主题
+
+1. 通用原则：
+   - 所有Bootstrap组件都必须添加自定义类，然后在CSS中覆盖其样式
+   - 使用 !important 确保自定义样式优先级高于Bootstrap默认样式
+   - 在<style>中明确定义每个使用到的Bootstrap组件的颜色
+
+2. 必须覆盖的Bootstrap组件：
+   - .table / .table-striped / .table-hover → 使用自定义表格类
+   - .card / .card-body → 覆盖background和color
+   - .list-group / .list-group-item → 覆盖background和color
+   - .accordion / .accordion-item → 覆盖background和color
+   - .modal / .modal-content → 覆盖background和color
+   - .dropdown-menu → 覆盖background和color
+   - .form-control / .form-select → 覆盖background和color
+
+3. 安全做法示例：
+   ❌ 错误：<table class="table">（Bootstrap默认样式不适配深色）
+   ✅ 正确：<table class="custom-table">（在CSS中定义完整样式）
+
+   ❌ 错误：<div class="card">（可能显示白色背景）
+   ✅ 正确：<div class="card content-card">（content-card覆盖背景色）
+
+4. 检查清单（生成HTML时必须检查）：
+   □ 所有表格都有自定义类且定义了完整的颜色样式
+   □ 所有卡片组件都定义了background和color
+   □ 所有列表组件都定义了background和color
+   □ 所有表单元素都定义了background和color
+   □ 没有使用Bootstrap的条纹、悬停等会产生浅色背景的类
+
 【颜色对比度规范（强制遵守）】
 ⚠️ 可访问性要求：所有文字必须与背景有足够对比度（WCAG AA标准）
 
@@ -774,6 +800,21 @@ ${teachingMethodPrompt}
 4. 交互元素对比度：
    - 按钮文字与按钮背景对比度 ≥ 4.5:1
    - 链接颜色与背景对比度 ≥ 4.5:1
+
+5. 表格样式特别规范（重要！）：
+   ⚠️ Bootstrap的table类有默认样式，必须覆盖才能适配深色主题
+   - 必须为表格容器添加自定义类（如vocabulary-table），不要直接用.table类
+   - 表格背景必须使用深色：var(--c-surface) 或 rgba(255,255,255,0.05)
+   - 表头(th)背景：var(--c-primary) 或 var(--c-surface)，文字必须是白色
+   - 表格单元格(td)背景：rgba(255,255,255,0.02)或var(--c-surface)，文字必须是var(--c-text)
+   - 边框颜色：var(--c-border) 即 rgba(255,255,255,0.10)
+   - 禁止使用Bootstrap默认的table-striped、table-hover等类（会产生浅色背景）
+
+   正确的表格CSS示例：
+   .tr-resource-container .custom-table { background: var(--c-surface); border-radius: 8px; overflow: hidden; }
+   .tr-resource-container .custom-table th { background: var(--c-primary); color: white; padding: 12px; }
+   .tr-resource-container .custom-table td { background: rgba(255,255,255,0.02); color: var(--c-text); padding: 12px; border-bottom: 1px solid var(--c-border); }
+   .tr-resource-container .custom-table tr:hover td { background: rgba(255,255,255,0.05); }
 
 【页面结构要求】
 1. 完整的HTML5页面，包含<!DOCTYPE html>
@@ -980,6 +1021,14 @@ function checkOrder(btn) {
 
 其中 section-id 是该章节的id值（如section-1, section-2等）。
 系统会在后处理时将占位符替换为实际的B站视频播放器嵌入代码。
+占位符放置位置应该在章节标题下方、正文内容之前或之后的合适位置。
+
+【预设图片占位符规则（重要）】
+当大纲章节中标注"含预设图片"时，必须在该章节对应位置插入以下HTML注释占位符：
+<!-- IMAGE_PLACEHOLDER:section-id -->
+
+其中 section-id 是该章节的id值（如section-1, section-2等）。
+系统会在后处理时将占位符替换为用户预设的实际图片。
 占位符放置位置应该在章节标题下方、正文内容之前或之后的合适位置。
 
 【重要】

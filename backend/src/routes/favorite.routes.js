@@ -20,7 +20,15 @@ const upload = multer({
   }
 });
 
-// 所有路由需要认证
+// ==================== 公开路由（无需认证）====================
+
+// 获取收藏的图片文件（公开访问，因为<img>标签无法携带JWT token）
+router.get('/images/:uuid', favoriteController.getImagePublic.bind(favoriteController));
+
+// B站图片代理（解决防盗链问题）
+router.get('/proxy/bilibili', favoriteController.proxyBilibiliImage.bind(favoriteController));
+
+// ==================== 以下路由需要认证 ====================
 router.use(authMiddleware);
 
 // ==================== 收藏文件夹路由 ====================
@@ -48,11 +56,6 @@ router.get('/meta/wechat', favoriteController.fetchWechatMeta.bind(favoriteContr
 // 上传/下载图片
 router.post('/upload/image', upload.single('file'), favoriteController.uploadImage.bind(favoriteController));
 
-// ==================== 图片访问路由（必须在 /:id 之前）====================
-
-// 获取收藏的图片文件
-router.get('/images/:uuid', favoriteController.getImage.bind(favoriteController));
-
 // ==================== 批量操作路由（必须在 /:id 之前）====================
 
 // 批量删除收藏
@@ -60,6 +63,9 @@ router.post('/batch-delete', favoriteController.batchDelete.bind(favoriteControl
 
 // 批量移动收藏
 router.post('/batch-move', favoriteController.batchMove.bind(favoriteController));
+
+// 检查资源收藏状态
+router.get('/check-resources', favoriteController.checkResourceFavorites.bind(favoriteController));
 
 // ==================== 收藏资源路由 ====================
 

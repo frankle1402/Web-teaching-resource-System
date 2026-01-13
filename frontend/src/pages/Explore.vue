@@ -204,9 +204,27 @@
                 <el-icon><View /></el-icon>
                 {{ resource.view_count || 0 }}
               </span>
-              <span class="stat" title="点赞数">
-                <el-icon><StarFilled /></el-icon>
+              <span
+                class="stat like-btn"
+                :class="{ liked: isLiked(resource.id) }"
+                title="点赞"
+                @click.stop="handleLike(resource)"
+              >
+                <svg v-if="isLiked(resource.id)" class="heart-icon filled" viewBox="0 0 24 24" width="16" height="16">
+                  <path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+                <svg v-else class="heart-icon" viewBox="0 0 24 24" width="16" height="16">
+                  <path fill="currentColor" d="M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z"/>
+                </svg>
                 {{ resource.like_count || 0 }}
+              </span>
+              <span
+                class="stat favorite-btn"
+                :class="{ favorited: isFavorited(resource.id) }"
+                title="收藏"
+                @click.stop="handleFavorite(resource)"
+              >
+                <el-icon><StarFilled v-if="isFavorited(resource.id)" /><Star v-else /></el-icon>
               </span>
             </div>
             <span class="card-time">{{ formatDate(resource.updated_at) }}</span>
@@ -239,6 +257,38 @@
       <p>© 2026 教学资源生成与管理系统</p>
       <p>探索优质教学资源，助力医卫教育事业发展</p>
     </div>
+
+    <!-- 收藏对话框 -->
+    <el-dialog
+      v-model="favoriteDialogVisible"
+      title="收藏到文件夹"
+      width="400px"
+      :close-on-click-modal="false"
+    >
+      <div class="favorite-dialog-content">
+        <p class="favorite-resource-title">{{ currentFavoriteResource?.title }}</p>
+        <el-select
+          v-model="selectedFolderId"
+          placeholder="选择收藏文件夹（可选）"
+          clearable
+          style="width: 100%"
+        >
+          <el-option
+            v-for="folder in favoriteFolders"
+            :key="folder.id"
+            :label="folder.name"
+            :value="folder.id"
+          />
+        </el-select>
+        <p class="favorite-hint">不选择文件夹将收藏到"未分类"</p>
+      </div>
+      <template #footer>
+        <el-button @click="favoriteDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="favoriteLoading" @click="confirmFavorite">
+          确认收藏
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -248,9 +298,11 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Document, User, Search, HomeFilled, RefreshLeft,
-  Reading, School, View, StarFilled, ArrowRight
+  Reading, School, View, ArrowRight, Star, StarFilled
 } from '@element-plus/icons-vue'
 import { publicAPI } from '@/api/public'
+import { resourceAPI } from '@/api/resource'
+import { favoriteAPI } from '@/api/favorite'
 import { useUserStore } from '@/store/modules/user'
 
 const router = useRouter()
@@ -268,6 +320,17 @@ const loading = ref(false)
 const majorsLoading = ref(false)
 const resourceList = ref([])
 const majorList = ref([])
+
+// 点赞和收藏状态
+const likeStatusMap = ref({})
+const favoriteStatusMap = ref({})
+
+// 收藏对话框
+const favoriteDialogVisible = ref(false)
+const currentFavoriteResource = ref(null)
+const favoriteFolders = ref([])
+const selectedFolderId = ref(null)
+const favoriteLoading = ref(false)
 
 // 筛选表单
 const filterForm = reactive({
@@ -303,12 +366,171 @@ const loadResources = async () => {
     if (response.data && response.data.success) {
       resourceList.value = response.data.data.list || []
       pagination.total = response.data.data.pagination?.total || 0
+
+      // 如果用户已登录，加载点赞和收藏状态
+      if (userStore.isLoggedIn && resourceList.value.length > 0) {
+        loadLikeStatus()
+        loadFavoriteStatus()
+      }
     }
   } catch (error) {
     console.error('加载资源列表失败:', error)
     ElMessage.error('加载资源列表失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 加载点赞状态
+const loadLikeStatus = async () => {
+  if (!userStore.isLoggedIn || resourceList.value.length === 0) return
+  try {
+    const ids = resourceList.value.map(r => r.id).join(',')
+    const data = await resourceAPI.getLikeStatus(ids)
+    // request.js已解包，data直接是返回的数据
+    likeStatusMap.value = data || {}
+  } catch (error) {
+    console.error('加载点赞状态失败:', error)
+  }
+}
+
+// 加载收藏状态
+const loadFavoriteStatus = async () => {
+  if (!userStore.isLoggedIn || resourceList.value.length === 0) return
+  try {
+    const ids = resourceList.value.map(r => r.id)
+    const data = await favoriteAPI.checkResourceFavorites(ids)
+    // request.js已解包，data直接是返回的数据
+    favoriteStatusMap.value = data || {}
+  } catch (error) {
+    console.error('加载收藏状态失败:', error)
+  }
+}
+
+// 判断是否已点赞
+const isLiked = (resourceId) => {
+  return likeStatusMap.value[resourceId] === 'like'
+}
+
+// 判断是否已收藏
+const isFavorited = (resourceId) => {
+  return !!favoriteStatusMap.value[resourceId]
+}
+
+// 处理点赞
+const handleLike = async (resource) => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录后再点赞')
+    router.push('/login')
+    return
+  }
+
+  try {
+    const data = await resourceAPI.toggleLike(resource.id, 'like')
+    // request.js已解包，data直接是返回的数据
+    // 更新本地状态 - 使用新对象触发响应式
+    if (data.userAction === 'like') {
+      likeStatusMap.value = { ...likeStatusMap.value, [resource.id]: 'like' }
+    } else {
+      const newMap = { ...likeStatusMap.value }
+      delete newMap[resource.id]
+      likeStatusMap.value = newMap
+    }
+    // 更新点赞数
+    resource.like_count = data.likeCount
+    ElMessage.success(data.userAction === 'like' ? '点赞成功' : '已取消点赞')
+  } catch (error) {
+    console.error('点赞失败:', error)
+    ElMessage.error('操作失败')
+  }
+}
+
+// 处理收藏
+const handleFavorite = async (resource) => {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录后再收藏')
+    router.push('/login')
+    return
+  }
+
+  // 如果已收藏，取消收藏
+  if (isFavorited(resource.id)) {
+    try {
+      const favoriteId = favoriteStatusMap.value[resource.id]
+      await favoriteAPI.delete(favoriteId)
+      // 使用新对象触发响应式
+      const newMap = { ...favoriteStatusMap.value }
+      delete newMap[resource.id]
+      favoriteStatusMap.value = newMap
+      ElMessage.success('已取消收藏')
+    } catch (error) {
+      console.error('取消收藏失败:', error)
+      ElMessage.error('取消收藏失败')
+    }
+    return
+  }
+
+  // 打开收藏对话框
+  currentFavoriteResource.value = resource
+  selectedFolderId.value = null
+  favoriteDialogVisible.value = true
+  loadFavoriteFolders()
+}
+
+// 加载收藏文件夹
+const loadFavoriteFolders = async () => {
+  try {
+    const data = await favoriteAPI.getFolders()
+    // request.js已解包，需要从tree字段获取文件夹列表
+    favoriteFolders.value = flattenFolders(data?.tree || [])
+  } catch (error) {
+    console.error('加载收藏文件夹失败:', error)
+  }
+}
+
+// 扁平化文件夹树
+const flattenFolders = (tree, result = []) => {
+  tree.forEach(folder => {
+    result.push({ id: folder.id, name: folder.name })
+    if (folder.children?.length) {
+      flattenFolders(folder.children, result)
+    }
+  })
+  return result
+}
+
+// 确认收藏
+const confirmFavorite = async () => {
+  if (!currentFavoriteResource.value) return
+
+  favoriteLoading.value = true
+  try {
+    const resource = currentFavoriteResource.value
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+
+    const data = await favoriteAPI.create({
+      type: 'resource',
+      title: resource.title,
+      sourceUrl: `${baseUrl}/r/${resource.uuid}`,
+      resourceId: resource.id,
+      folderId: selectedFolderId.value,
+      description: `${resource.course_name} - ${Array.isArray(resource.major) ? resource.major.join(', ') : resource.major}`
+    })
+
+    // request.js已解包，data直接是返回的数据
+    // 使用新对象触发响应式
+    favoriteStatusMap.value = { ...favoriteStatusMap.value, [resource.id]: data.id }
+    ElMessage.success('收藏成功')
+    favoriteDialogVisible.value = false
+  } catch (error) {
+    console.error('收藏失败:', error)
+    if (error.message?.includes('FAVORITE_EXISTS')) {
+      ElMessage.warning('该资源已收藏')
+    } else {
+      ElMessage.error('收藏失败')
+    }
+  } finally {
+    favoriteLoading.value = false
   }
 }
 
@@ -717,6 +939,46 @@ onMounted(() => {
   color: #94a3b8;
 }
 
+.like-btn,
+.favorite-btn {
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.like-btn:hover {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.like-btn.liked {
+  color: #ef4444;
+}
+
+.like-btn.liked .heart-icon {
+  animation: heartBeat 0.3s ease-in-out;
+}
+
+.heart-icon {
+  vertical-align: middle;
+}
+
+.favorite-btn:hover {
+  background: #fefce8;
+  color: #eab308;
+}
+
+.favorite-btn.favorited {
+  color: #eab308;
+}
+
+@keyframes heartBeat {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
 .card-time {
   font-size: 13px;
   color: #94a3b8;
@@ -746,5 +1008,24 @@ onMounted(() => {
 .page-footer p {
   margin: 4px 0;
   font-size: 14px;
+}
+
+/* 收藏对话框 */
+.favorite-dialog-content {
+  padding: 8px 0;
+}
+
+.favorite-resource-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1e293b;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.favorite-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 8px;
 }
 </style>

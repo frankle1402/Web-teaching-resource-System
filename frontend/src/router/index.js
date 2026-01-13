@@ -23,6 +23,13 @@ const routes = [
     component: () => import('@/pages/Register.vue'),
     meta: { requiresAuth: false, title: '新用户注册' }
   },
+  // 认证重定向页面（用于接收外部token并登录）
+  {
+    path: '/auth-redirect',
+    name: 'AuthRedirect',
+    component: () => import('@/pages/AuthRedirect.vue'),
+    meta: { requiresAuth: false, title: '登录中...' }
+  },
   {
     path: '/explore',
     name: 'Explore',
@@ -55,25 +62,25 @@ const routes = [
         path: 'resources',
         name: 'ResourceList',
         component: () => import('@/pages/FolderManage.vue'),
-        meta: { title: '我的资源' }
+        meta: { title: '我的资源', requiresTeacher: true }
       },
       {
         path: 'resources/create',
         name: 'CreateResource',
         component: () => import('@/pages/CreateResource.vue'),
-        meta: { title: '创建资源' }
+        meta: { title: '创建资源', requiresTeacher: true }
       },
       {
         path: 'resources/edit/:id',
         name: 'EditResource',
         component: () => import('@/pages/CreateResource.vue'),
-        meta: { title: '编辑资源' }
+        meta: { title: '编辑资源', requiresTeacher: true }
       },
       {
         path: 'templates',
         name: 'TemplateCenter',
         component: () => import('@/pages/TemplateCenter.vue'),
-        meta: { title: '模板中心' }
+        meta: { title: '模板中心', requiresTeacher: true }
       },
       {
         path: 'help',
@@ -155,16 +162,20 @@ router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
 
   // 需要认证的路由
-  if (to.meta.requiresAuth) {
+  if (to.meta.requiresAuth || to.matched.some(record => record.meta.requiresAuth)) {
     if (userStore.isLoggedIn) {
       // 已登录，验证Token有效性
       const isValid = await userStore.verifyToken()
       if (isValid) {
         // 检查是否需要管理员权限
         if (to.meta.requiresAdmin && !userStore.isAdmin) {
-          // 非管理员访问管理员页面，跳转到Dashboard
-          next('/dashboard')
-        } else {
+          next('/dashboard/home')
+        }
+        // 检查是否需要教师权限（学生不能访问）
+        else if (to.meta.requiresTeacher && userStore.isStudent) {
+          next('/dashboard/home')
+        }
+        else {
           next()
         }
       } else {

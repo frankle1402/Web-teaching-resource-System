@@ -55,8 +55,11 @@ async function authMiddleware(req, res, next) {
       phone: user.phone,
       openid: user.openid,
       nickname: user.nickname,
-      role: user.role || 'user'  // 默认为���通用户
+      role: user.role || 'user'  // 默认为普通用户
     };
+
+    // 将 token 附加到请求对象（用于 syncToken）
+    req.token = token;
 
     next();
   } catch (error) {

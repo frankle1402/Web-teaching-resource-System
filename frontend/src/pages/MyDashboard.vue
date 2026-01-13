@@ -17,11 +17,11 @@
             </h1>
             <div class="user-meta">
               <el-tag
-                :type="userData.user?.role === 'admin' ? 'danger' : 'primary'"
+                :type="userData.user?.role === 'admin' ? 'danger' : (userData.user?.role === 'student' ? 'success' : 'primary')"
                 size="small"
                 effect="dark"
               >
-                {{ userData.user?.role === 'admin' ? '管理员' : '教师' }}
+                {{ userData.user?.role === 'admin' ? '管理员' : (userData.user?.role === 'student' ? '学生' : '教师') }}
               </el-tag>
               <span v-if="userData.user?.organization" class="organization">
                 {{ userData.user.organization }}
@@ -277,10 +277,10 @@ const userData = reactive({
   dailyStats: []
 })
 
-// 是否为教师角色（非学生）
+// 是否为教师角色（admin或teacher都可以看到教师专属统计）
 const isTeacher = computed(() => {
   const role = userData.user?.role || userStore.userRole
-  return role !== 'student'
+  return role === 'admin' || role === 'teacher'
 })
 
 /**
@@ -508,7 +508,8 @@ async function loadDashboardData() {
  */
 function handleViewResource(resource) {
   if (resource?.uuid) {
-    window.open(`/r/${resource.uuid}`, '_blank')
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    window.open(`${baseUrl}/r/${resource.uuid}`, '_blank')
   }
 }
 

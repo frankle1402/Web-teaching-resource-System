@@ -12,21 +12,26 @@ router.use(authMiddleware, adminMiddleware);
  */
 
 // 统计数据
-router.get('/stats', adminController.getStats);
+router.get('/stats', adminController.getStats.bind(adminController));
 
 // 用户管理
-router.get('/users', adminController.getUsers);
-router.post('/users', adminController.createUser);
-router.put('/users/:id/status', adminController.updateUserStatus);
-router.put('/users/:id', adminController.updateUser);
-router.get('/users/:id/resources', adminController.getUserResources);
+router.get('/users', adminController.getUsers.bind(adminController));
+router.post('/users', adminController.createUser.bind(adminController));
+router.put('/users/:id/status', adminController.updateUserStatus.bind(adminController));
+router.put('/users/:id', adminController.updateUser.bind(adminController));
+router.delete('/users/:id', adminController.deleteUser.bind(adminController));
+router.get('/users/:id/resources', adminController.getUserResources.bind(adminController));
+
+// 批量用户操作
+router.put('/users/batch/status', adminController.batchUpdateUserStatus.bind(adminController));
+router.put('/users/batch/role', adminController.batchUpdateUserRole.bind(adminController));
 
 // 资源管理（全站）
-router.get('/all-resources', adminController.getAllResources);
-router.put('/resources/:id/disable', adminController.toggleResourceDisabled);
-router.put('/resources/:id/unpublish', adminController.forceUnpublishResource);
+router.get('/all-resources', adminController.getAllResources.bind(adminController));
+router.put('/resources/:id/disable', adminController.toggleResourceDisabled.bind(adminController));
+router.put('/resources/:id/unpublish', adminController.forceUnpublishResource.bind(adminController));
 
 // 操作日志
-router.get('/logs', adminController.getLogs);
+router.get('/logs', adminController.getLogs.bind(adminController));
 
 module.exports = router;

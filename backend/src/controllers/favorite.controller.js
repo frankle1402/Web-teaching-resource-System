@@ -437,6 +437,8 @@ class FavoriteController {
       const {
         type,
         title,
+        customTitle,
+        notes,
         description,
         thumbnailUrl,
         sourceUrl,
@@ -461,7 +463,7 @@ class FavoriteController {
       } = req.body;
 
       // 验证必填字段
-      if (!type || !title || !sourceUrl) {
+      if (!type || !title || (!sourceUrl && type !== 'resource')) {
         return res.status(400).json({
           success: false,
           error: {
@@ -472,24 +474,26 @@ class FavoriteController {
       }
 
       // 验证类型
-      const validTypes = ['bilibili', 'wechat_article', 'image'];
+      const validTypes = ['bilibili', 'wechat_article', 'image', 'resource'];
       if (!validTypes.includes(type)) {
         return res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_TYPE',
-            message: '无效的资源类型，必须是 bilibili, wechat_article 或 image'
+            message: '无效的资源类型，必须是 bilibili, wechat_article, image 或 resource'
           }
         });
       }
 
       const db = await getDB();
 
-      // 检查是否已存在相同的收藏（通过source_url或bvid判断）
+      // 检查是否已存在相同的收藏
       let existing = null;
       if (type === 'bilibili' && bvid) {
         existing = db.prepare('SELECT id FROM favorites WHERE user_id = ? AND bvid = ?').get([userId, bvid]);
-      } else {
+      } else if (type === 'resource' && req.body.resourceId) {
+        existing = db.prepare('SELECT id FROM favorites WHERE user_id = ? AND resource_id = ?').get([userId, req.body.resourceId]);
+      } else if (sourceUrl) {
         existing = db.prepare('SELECT id FROM favorites WHERE user_id = ? AND source_url = ?').get([userId, sourceUrl]);
       }
 
@@ -519,24 +523,24 @@ class FavoriteController {
 
       const result = db.prepare(`
         INSERT INTO favorites (
-          user_id, folder_id, type, title, description, thumbnail_url, source_url,
+          user_id, folder_id, type, title, custom_title, notes, description, thumbnail_url, source_url,
           bvid, video_duration, author_name, play_count,
           article_author, publish_time,
           local_path, original_filename, file_size, mime_type, width, height,
-          metadata, fetch_time, created_at, updated_at
+          resource_id, metadata, fetch_time, created_at, updated_at
         ) VALUES (
-          ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?,
           ?, ?,
           ?, ?, ?, ?, ?, ?,
-          ?, datetime('now', '+8 hours'), datetime('now', '+8 hours'), datetime('now', '+8 hours')
+          ?, ?, datetime('now', '+8 hours'), datetime('now', '+8 hours'), datetime('now', '+8 hours')
         )
       `).run([
-        userId, folderId || null, type, title, description || null, thumbnailUrl || null, sourceUrl,
+        userId, folderId || null, type, title, customTitle || null, notes || null, description || null, thumbnailUrl || null, sourceUrl || '',
         bvid || null, videoDuration || null, authorName || null, playCount || null,
         articleAuthor || null, publishTime || null,
         localPath || null, originalFilename || null, fileSize || null, mimeType || null, width || null, height || null,
-        metadata ? JSON.stringify(metadata) : null
+        req.body.resourceId || null, metadata ? JSON.stringify(metadata) : null
       ]);
 
       saveDatabase();
@@ -562,13 +566,13 @@ class FavoriteController {
   }
 
   /**
-   * 更新收藏（移动文件夹、修改标题等）
+   * 更新收藏（移动文件夹、修改标题、自定义标题、备注等）
    */
   async updateFavorite(req, res) {
     try {
       const { id } = req.params;
       const userId = req.user.id;
-      const { title, description, folderId } = req.body;
+      const { title, description, folderId, customTitle, notes } = req.body;
 
       const db = await getDB();
 
@@ -613,6 +617,14 @@ class FavoriteController {
       if (folderId !== undefined) {
         updates.push('folder_id = ?');
         updateParams.push(folderId);
+      }
+      if (customTitle !== undefined) {
+        updates.push('custom_title = ?');
+        updateParams.push(customTitle || null);
+      }
+      if (notes !== undefined) {
+        updates.push('notes = ?');
+        updateParams.push(notes || null);
       }
 
       updates.push("updated_at = datetime('now', '+8 hours')");
@@ -816,6 +828,51 @@ class FavoriteController {
     }
   }
 
+  /**
+   * 检查多个资源的收藏状态
+   */
+  async checkResourceFavorites(req, res) {
+    try {
+      const { resourceIds } = req.query;
+      const userId = req.user.id;
+
+      if (!resourceIds) {
+        return res.json({
+          success: true,
+          data: {}
+        });
+      }
+
+      const ids = resourceIds.split(',').map(id => parseInt(id));
+      const db = await getDB();
+
+      const placeholders = ids.map(() => '?').join(',');
+      const favorites = db.prepare(`
+        SELECT resource_id, id as favorite_id FROM favorites
+        WHERE resource_id IN (${placeholders}) AND user_id = ? AND type = 'resource'
+      `).all([...ids, userId]);
+
+      const statusMap = {};
+      favorites.forEach(fav => {
+        statusMap[fav.resource_id] = fav.favorite_id;
+      });
+
+      res.json({
+        success: true,
+        data: statusMap
+      });
+    } catch (error) {
+      console.error('检查收藏状态错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'CHECK_FAVORITES_ERROR',
+          message: '检查收藏状态失败'
+        }
+      });
+    }
+  }
+
   // ==================== 元数据抓取 ====================
 
   /**
@@ -926,37 +983,58 @@ class FavoriteController {
       // 获取文章页面
       const response = await axios.get(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
         },
-        timeout: 15000
+        timeout: 15000,
+        maxRedirects: 5
       });
 
       const html = response.data;
 
-      // 使用正则表达式提取元数据
-      const titleMatch = html.match(/<meta property="og:title" content="([^"]*)"/) ||
-                         html.match(/<meta name="twitter:title" content="([^"]*)"/) ||
-                         html.match(/<title>([^<]*)<\/title>/);
+      // 使用多种正则表达式提取元数据
+      // 标题提取
+      const titleMatch = html.match(/<meta\s+property="og:title"\s+content="([^"]*)"/i) ||
+                         html.match(/<meta\s+content="([^"]*)"\s+property="og:title"/i) ||
+                         html.match(/<meta\s+name="twitter:title"\s+content="([^"]*)"/i) ||
+                         html.match(/var\s+msg_title\s*=\s*['"]([^'"]*)['"]/i) ||
+                         html.match(/<h1[^>]*class="rich_media_title"[^>]*>([^<]*)</i) ||
+                         html.match(/<title>([^<]*)<\/title>/i);
 
-      const descMatch = html.match(/<meta property="og:description" content="([^"]*)"/) ||
-                        html.match(/<meta name="description" content="([^"]*)"/);
+      // 描述提取
+      const descMatch = html.match(/<meta\s+property="og:description"\s+content="([^"]*)"/i) ||
+                        html.match(/<meta\s+content="([^"]*)"\s+property="og:description"/i) ||
+                        html.match(/<meta\s+name="description"\s+content="([^"]*)"/i) ||
+                        html.match(/var\s+msg_desc\s*=\s*['"]([^'"]*)['"]/i);
 
-      const imageMatch = html.match(/<meta property="og:image" content="([^"]*)"/);
+      // 封面图片提取
+      const imageMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]*)"/i) ||
+                         html.match(/<meta\s+content="([^"]*)"\s+property="og:image"/i) ||
+                         html.match(/var\s+msg_cdn_url\s*=\s*['"]([^'"]*)['"]/i) ||
+                         html.match(/cdn_url\s*:\s*['"]([^'"]*)['"]/i);
 
-      // 提取公众号名称
-      const authorMatch = html.match(/var nickname\s*=\s*htmlDecode\("([^"]*)"\)/) ||
-                          html.match(/id="js_name">([^<]*)</) ||
-                          html.match(/<a class="weui-cells_link"[^>]*>([^<]*)<\/a>/);
+      // 公众号名称提取
+      const authorMatch = html.match(/var\s+nickname\s*=\s*htmlDecode\s*\(\s*["']([^"']*)["']\s*\)/i) ||
+                          html.match(/var\s+nickname\s*=\s*["']([^"']*)["']/i) ||
+                          html.match(/<strong[^>]*class="profile_nickname"[^>]*>([^<]*)</i) ||
+                          html.match(/<a[^>]*id="js_name"[^>]*>([^<]*)</i) ||
+                          html.match(/id="js_name"[^>]*>\s*([^<\s][^<]*[^<\s])\s*</i) ||
+                          html.match(/<span[^>]*class="profile_meta_value"[^>]*>([^<]*)</i);
 
-      // 提取发布时间
-      const timeMatch = html.match(/var publish_time\s*=\s*"([^"]*)"/) ||
-                        html.match(/id="publish_time"[^>]*>([^<]*)</);
+      // 发布时间提取
+      const timeMatch = html.match(/var\s+publish_time\s*=\s*["']([^"']*)["']/i) ||
+                        html.match(/var\s+create_time\s*=\s*["']([^"']*)["']/i) ||
+                        html.match(/<em[^>]*id="publish_time"[^>]*>([^<]*)</i) ||
+                        html.match(/id="publish_time"[^>]*class="rich_media_meta[^"]*"[^>]*>([^<]*)</i);
 
       const title = titleMatch ? titleMatch[1].trim() : '未知标题';
       const description = descMatch ? descMatch[1].trim() : '';
       const thumbnailUrl = imageMatch ? imageMatch[1] : '';
       const articleAuthor = authorMatch ? authorMatch[1].trim() : '';
       const publishTime = timeMatch ? timeMatch[1].trim() : '';
+
+      console.log(`✓ 抓取公众号文章: ${title} (公众号: ${articleAuthor || '未知'})`);
 
       res.json({
         success: true,
@@ -970,7 +1048,7 @@ class FavoriteController {
         }
       });
     } catch (error) {
-      console.error('抓取公众号文章元数据错误:', error);
+      console.error('抓取公众号文章元数据错误:', error.message);
       res.status(500).json({
         success: false,
         error: {
@@ -1084,7 +1162,144 @@ class FavoriteController {
   }
 
   /**
-   * 获取收藏的图片文件
+   * 获取收藏的图片文件（公开访问，无需认证）
+   * 通过UUID保护，只有知道UUID的人才能访问
+   */
+  async getImagePublic(req, res) {
+    try {
+      const { uuid } = req.params;
+
+      // 验证UUID格式（基本安全检查）
+      if (!uuid || uuid.length < 32 || !/^[a-f0-9-]+$/i.test(uuid)) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_UUID',
+            message: '无效的图片标识'
+          }
+        });
+      }
+
+      // 在userdata目录下查找匹配的图片
+      const uploadDir = path.join(__dirname, '../../userdata/uploads/images');
+
+      // 确保目录存在
+      if (!fs.existsSync(uploadDir)) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'IMAGE_NOT_FOUND',
+            message: '图片不存在'
+          }
+        });
+      }
+
+      const files = fs.readdirSync(uploadDir);
+      const matchedFile = files.find(f => f.startsWith(uuid));
+
+      if (!matchedFile) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'IMAGE_NOT_FOUND',
+            message: '图片不存在'
+          }
+        });
+      }
+
+      const filePath = path.join(uploadDir, matchedFile);
+
+      // 设置正确的Content-Type
+      const ext = path.extname(matchedFile).toLowerCase();
+      const mimeTypes = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml'
+      };
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      res.setHeader('Content-Type', contentType);
+
+      // 设置缓存头（图片可以缓存1天）
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+
+      // 返回图片文件
+      res.sendFile(filePath);
+    } catch (error) {
+      console.error('获取图片错误:', error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'GET_IMAGE_ERROR',
+          message: '获取图片失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * B站图片代理（解决防盗链问题）
+   */
+  async proxyBilibiliImage(req, res) {
+    try {
+      const { url } = req.query;
+
+      if (!url) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'MISSING_URL',
+            message: '缺少图片URL'
+          }
+        });
+      }
+
+      // 验证是否为B站图片URL
+      const decodedUrl = decodeURIComponent(url);
+      if (!decodedUrl.includes('hdslb.com') && !decodedUrl.includes('bilibili.com')) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_URL',
+            message: '仅支持B站图片'
+          }
+        });
+      }
+
+      // 请求B站图片，带上正确的Referer
+      const response = await axios.get(decodedUrl, {
+        responseType: 'arraybuffer',
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://www.bilibili.com/',
+          'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
+        }
+      });
+
+      // 设置响应头
+      const contentType = response.headers['content-type'] || 'image/jpeg';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+
+      // 返回图片数据
+      res.send(Buffer.from(response.data));
+    } catch (error) {
+      console.error('代理B站图片错误:', error.message);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'PROXY_ERROR',
+          message: '获取图片失败'
+        }
+      });
+    }
+  }
+
+  /**
+   * 获取收藏的图片文件（需要认证，带用户权限验证）
    */
   async getImage(req, res) {
     try {
