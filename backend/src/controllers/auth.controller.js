@@ -740,7 +740,13 @@ class AuthController {
     try {
       req.session.authToken = null;
       req.session.userInfo = null;
-      console.log('✓ Session token 已清除');
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session 保存失败:', err);
+        } else {
+          console.log('✓ Session token 已清除并保存');
+        }
+      });
       res.json({ success: true });
     } catch (error) {
       console.error('清除 session token 失败:', error);

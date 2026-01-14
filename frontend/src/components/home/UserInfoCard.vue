@@ -5,14 +5,13 @@
         <el-icon :size="40"><User /></el-icon>
       </div>
       <div class="user-info">
-        <h3 class="user-phone">{{ userStore.userPhone }}</h3>
-        <el-tag
-          :type="userStore.isAdmin ? 'danger' : 'primary'"
-          size="small"
-          class="user-role"
-        >
-          {{ userStore.isAdmin ? '管理员' : '普通用户' }}
-        </el-tag>
+        <div class="user-name-row">
+          <h3 class="user-name">{{ userStore.displayName }}</h3>
+          <el-tag :type="userStore.isAdmin ? 'danger' : 'primary'" size="small" class="user-role">
+            {{ userStore.isAdmin ? '管理员' : '普通用户' }}
+          </el-tag>
+        </div>
+        <p v-if="userStore.userInfo.organization" class="user-org">{{ userStore.userInfo.organization }}</p>
       </div>
     </div>
 
@@ -129,19 +128,22 @@ export default {
   border-radius: 12px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
 }
 
 .user-card-header {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  padding: 2rem;
+  padding: 1.5rem;
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
 .user-avatar {
-  width: 60px;
-  height: 60px;
+  width: 48px;
+  height: 48px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   display: flex;
@@ -154,18 +156,31 @@ export default {
   color: white;
 }
 
-.user-phone {
-  font-size: 1.25rem;
+.user-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-name {
+  font-size: 1.1rem;
   font-weight: 600;
-  margin: 0 0 0.5rem 0;
+  margin: 0;
+}
+
+.user-org {
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0 0;
+  opacity: 0.9;
 }
 
 .user-role {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 
 .user-card-body {
-  padding: 1.5rem 2rem;
+  padding: 1.25rem 1.5rem;
+  flex: 1;
 }
 
 .user-stats {
@@ -177,8 +192,8 @@ export default {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: 0.5rem;
+  padding: 0.75rem;
   background: #f9fafb;
   border-radius: 8px;
 }
@@ -203,17 +218,17 @@ export default {
 }
 
 .user-card-footer {
-  padding: 0 2rem 1.5rem;
+  padding: 0 1.5rem 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
 .btn {
-  padding: 0.75rem 1.5rem;
+  padding: 0.6rem 1.25rem;
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s;
@@ -253,15 +268,13 @@ export default {
 
 /* 资源中心入口 */
 .explore-entry {
-  margin-top: 1rem;
-  padding: 1.5rem 2rem;
-  border-top: 1px solid #e5e7eb;
+  padding: 0.5rem 1.5rem 1.5rem;
 }
 
 .entry-divider {
   display: flex;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .entry-divider::before,
@@ -284,8 +297,8 @@ export default {
 
 .explore-button {
   width: 100%;
-  height: 44px;
-  font-size: 0.9rem;
+  height: 38px;
+  font-size: 0.85rem;
   border: 2px solid #3b82f6;
   color: #3b82f6;
   background: white;

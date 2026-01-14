@@ -258,6 +258,9 @@
       <p>探索优质教学资源，助力医卫教育事业发展</p>
     </div>
 
+    <!-- 登录弹窗 -->
+    <LoginDialog v-model="loginDialogVisible" @success="handleLoginSuccess" />
+
     <!-- 收藏对话框 -->
     <el-dialog
       v-model="favoriteDialogVisible"
@@ -304,6 +307,7 @@ import { publicAPI } from '@/api/public'
 import { resourceAPI } from '@/api/resource'
 import { favoriteAPI } from '@/api/favorite'
 import { useUserStore } from '@/store/modules/user'
+import LoginDialog from '@/components/common/LoginDialog.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -331,6 +335,10 @@ const currentFavoriteResource = ref(null)
 const favoriteFolders = ref([])
 const selectedFolderId = ref(null)
 const favoriteLoading = ref(false)
+
+// 登录弹窗
+const loginDialogVisible = ref(false)
+const pendingAction = ref(null) // 保存待执行的操作
 
 // 筛选表单
 const filterForm = reactive({
@@ -420,8 +428,8 @@ const isFavorited = (resourceId) => {
 // 处理点赞
 const handleLike = async (resource) => {
   if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录后再点赞')
-    router.push('/login')
+    pendingAction.value = { type: 'like', resource }
+    loginDialogVisible.value = true
     return
   }
 
@@ -448,8 +456,8 @@ const handleLike = async (resource) => {
 // 处理收藏
 const handleFavorite = async (resource) => {
   if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录后再收藏')
-    router.push('/login')
+    pendingAction.value = { type: 'favorite', resource }
+    loginDialogVisible.value = true
     return
   }
 
@@ -594,7 +602,26 @@ const handleViewResource = (resource) => {
 
 // 跳转登录
 const goToLogin = () => {
-  router.push('/login')
+  loginDialogVisible.value = true
+}
+
+// 登录成功回调
+const handleLoginSuccess = () => {
+  // 刷新点赞和收藏状态
+  if (resourceList.value.length > 0) {
+    loadLikeStatus()
+    loadFavoriteStatus()
+  }
+  // 执行待处理的操作
+  if (pendingAction.value) {
+    const { type, resource } = pendingAction.value
+    pendingAction.value = null
+    if (type === 'like') {
+      handleLike(resource)
+    } else if (type === 'favorite') {
+      handleFavorite(resource)
+    }
+  }
 }
 
 // 跳转首页

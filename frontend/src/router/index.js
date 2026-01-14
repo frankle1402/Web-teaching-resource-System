@@ -30,6 +30,13 @@ const routes = [
     component: () => import('@/pages/AuthRedirect.vue'),
     meta: { requiresAuth: false, title: '登录中...' }
   },
+  // 嵌入式登录页面（用于iframe嵌入）
+  {
+    path: '/login-embed',
+    name: 'LoginEmbed',
+    component: () => import('@/pages/LoginEmbed.vue'),
+    meta: { requiresAuth: false, title: '登录' }
+  },
   {
     path: '/explore',
     name: 'Explore',

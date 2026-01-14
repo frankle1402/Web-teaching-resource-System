@@ -1247,9 +1247,42 @@ class ResourceController {
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
       width: 100%;
-      max-width: 400px;
-      padding: 32px;
+      max-width: 420px;
+      padding: 0;
       animation: slideUp 0.3s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .close-login-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      font-size: 20px;
+      color: #64748b;
+      cursor: pointer;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .close-login-btn:hover {
+      background: rgba(0, 0, 0, 0.2);
+      color: #1e293b;
+    }
+
+    .login-iframe {
+      width: 100%;
+      height: 520px;
+      border: none;
+      display: block;
     }
 
     @keyframes slideUp {
@@ -1263,406 +1296,9 @@ class ResourceController {
       }
     }
 
-    .login-header {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .login-icon {
-      width: 64px;
-      height: 64px;
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 16px;
-    }
-
-    .login-icon svg {
-      width: 32px;
-      height: 32px;
-      color: white;
-    }
-
-    .login-title {
-      font-size: 22px;
-      font-weight: 600;
-      color: #1e293b;
-      margin-bottom: 8px;
-    }
-
-    .login-subtitle {
-      font-size: 14px;
-      color: #64748b;
-    }
-
-    /* 表单样式 */
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      color: #374151;
-      margin-bottom: 6px;
-    }
-
-    .input-wrapper {
-      position: relative;
-      display: flex;
-      gap: 8px;
-    }
-
-    .form-input {
-      flex: 1;
-      height: 44px;
-      padding: 0 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 15px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      outline: none;
-    }
-
-    .form-input:focus {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-    }
-
-    .form-input::placeholder {
-      color: #9ca3af;
-    }
-
-    .send-code-btn {
-      height: 44px;
-      padding: 0 16px;
-      background: #f3f4f6;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 14px;
-      color: #374151;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s;
-    }
-
-    .send-code-btn:hover:not(:disabled) {
-      background: #e5e7eb;
-    }
-
-    .send-code-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .login-btn {
-      width: 100%;
-      height: 48px;
-      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      color: white;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      margin-top: 8px;
-    }
-
-    .login-btn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-    }
-
-    .login-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .divider {
-      display: flex;
-      align-items: center;
-      margin: 20px 0;
-    }
-
-    .divider-line {
-      flex: 1;
-      height: 1px;
-      background: #e5e7eb;
-    }
-
-    .divider-text {
-      padding: 0 12px;
-      font-size: 13px;
-      color: #9ca3af;
-    }
-
-    .guest-btn {
-      width: 100%;
-      height: 44px;
-      background: white;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font-size: 15px;
-      color: #374151;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .guest-btn:hover {
-      background: #f9fafb;
-      border-color: #9ca3af;
-    }
-
-    .error-message {
-      color: #ef4444;
-      font-size: 13px;
-      margin-top: 8px;
-      display: none;
-    }
-
-    .error-message.show {
-      display: block;
-    }
-
-    /* 验证码弹窗 */
-    .code-popup {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-      z-index: 10001;
-      text-align: center;
-      display: none;
-    }
-
-    .code-popup.show {
-      display: block;
-    }
-
-    .code-popup-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1e293b;
-      margin-bottom: 12px;
-    }
-
-    .code-popup-code {
-      font-size: 32px;
-      font-weight: 700;
-      color: #6366f1;
-      letter-spacing: 4px;
-      margin-bottom: 12px;
-    }
-
-    .code-popup-hint {
+    /* 移动端响应式样式 */
       font-size: 13px;
       color: #64748b;
-    }
-
-    /* 注册表单样式 */
-    .register-card {
-      background: white;
-      border-radius: 16px;
-      padding: 32px;
-      width: 100%;
-      max-width: 420px;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    }
-
-    .register-header {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .register-title {
-      font-size: 22px;
-      font-weight: 700;
-      color: #1e293b;
-      margin-bottom: 8px;
-    }
-
-    .register-subtitle {
-      font-size: 14px;
-      color: #64748b;
-    }
-
-    .register-phone-display {
-      background: #f1f5f9;
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .register-phone-display .phone-number {
-      font-size: 15px;
-      font-weight: 500;
-      color: #1e293b;
-    }
-
-    .register-phone-display .change-phone-btn {
-      font-size: 13px;
-      color: #6366f1;
-      background: none;
-      border: none;
-      cursor: pointer;
-    }
-
-    .register-phone-display .change-phone-btn:hover {
-      text-decoration: underline;
-    }
-
-    .role-selector {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .role-option {
-      flex: 1;
-      padding: 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 12px;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.2s;
-      background: white;
-    }
-
-    .role-option:hover {
-      border-color: #c7d2fe;
-      background: #f8fafc;
-    }
-
-    .role-option.selected {
-      border-color: #6366f1;
-      background: #eef2ff;
-    }
-
-    .role-option-icon {
-      width: 40px;
-      height: 40px;
-      margin: 0 auto 8px;
-      background: #e0e7ff;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .role-option.selected .role-option-icon {
-      background: #6366f1;
-    }
-
-    .role-option-icon svg {
-      width: 22px;
-      height: 22px;
-      color: #6366f1;
-    }
-
-    .role-option.selected .role-option-icon svg {
-      color: white;
-    }
-
-    .role-option-label {
-      font-size: 15px;
-      font-weight: 600;
-      color: #1e293b;
-    }
-
-    .role-option-desc {
-      font-size: 12px;
-      color: #64748b;
-      margin-top: 4px;
-    }
-
-    .register-form-group {
-      margin-bottom: 16px;
-    }
-
-    .register-form-group .form-label {
-      display: block;
-      font-size: 13px;
-      font-weight: 500;
-      color: #374151;
-      margin-bottom: 6px;
-    }
-
-    .register-form-group .form-label .required {
-      color: #ef4444;
-      margin-left: 2px;
-    }
-
-    .register-form-group .form-input {
-      width: 100%;
-      height: 44px;
-      padding: 0 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font-size: 15px;
-      background: white;
-      box-sizing: border-box;
-    }
-
-    .register-form-group .form-input:focus {
-      border-color: #6366f1;
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-    }
-
-    .register-btn {
-      width: 100%;
-      height: 48px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      border: none;
-      border-radius: 10px;
-      color: white;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-top: 8px;
-    }
-
-    .register-btn:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-    }
-
-    .register-btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .back-to-login-btn {
-      width: 100%;
-      height: 44px;
-      background: white;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font-size: 15px;
-      color: #374151;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-top: 12px;
-    }
-
-    .back-to-login-btn:hover {
-      background: #f9fafb;
-      border-color: #9ca3af;
     }
 
     /* 移动端响应式样式 */
@@ -1711,22 +1347,12 @@ class ResourceController {
       }
 
       .login-card {
-        padding: 24px;
         margin: 16px;
+        max-width: calc(100vw - 32px);
       }
 
-      .login-title {
-        font-size: 20px;
-      }
-
-      .login-icon {
-        width: 56px;
-        height: 56px;
-      }
-
-      .login-icon svg {
-        width: 28px;
-        height: 28px;
+      .login-iframe {
+        height: 480px;
       }
     }
 
@@ -1741,7 +1367,12 @@ class ResourceController {
       }
 
       .login-card {
-        padding: 20px;
+        margin: 12px;
+        max-width: calc(100vw - 24px);
+      }
+
+      .login-iframe {
+        height: 450px;
       }
     }
 
@@ -1763,8 +1394,11 @@ class ResourceController {
       }
 
       .login-card {
-        max-height: 90vh;
-        overflow-y: auto;
+        max-height: 85vh;
+      }
+
+      .login-iframe {
+        height: 400px;
       }
     }
 
@@ -1773,6 +1407,123 @@ class ResourceController {
       .timer-widget {
         top: calc(12px + env(safe-area-inset-top));
         left: calc(12px + env(safe-area-inset-left));
+      }
+    }
+
+    /* 分享按钮组 */
+    .share-widget {
+      position: fixed;
+      top: 20px;
+      right: 36px;
+      display: flex;
+      gap: 10px;
+      z-index: 9998;
+    }
+    .share-btn {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+    .share-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 24px rgba(59, 130, 246, 0.5);
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    }
+    .share-btn:active { transform: scale(0.95); }
+    .share-btn svg { width: 18px; height: 18px; }
+    .share-btn.copied {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+    }
+
+    /* 二维码弹出层 */
+    .qr-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(6px);
+      z-index: 10001;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .qr-overlay.hidden { display: none; }
+    .qr-card {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      max-width: 580px;
+      width: 100%;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
+      animation: slideUp 0.3s ease-out;
+    }
+    .qr-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 8px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .qr-subtitle {
+      font-size: 15px;
+      color: #64748b;
+      margin-bottom: 28px;
+    }
+    .qr-code {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .qr-code img, .qr-code canvas {
+      max-width: 100%;
+      height: auto;
+      border-radius: 16px;
+      border: 6px solid #f1f5f9;
+    }
+    .qr-close-btn {
+      background: #f1f5f9;
+      color: #475569;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 32px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .qr-close-btn:hover { background: #e2e8f0; }
+
+    /* 分享按钮响应式 */
+    @media (max-width: 768px) {
+      .share-widget { top: 12px; right: 24px; gap: 8px; }
+      .share-btn { width: 36px; height: 36px; }
+      .share-btn svg { width: 16px; height: 16px; }
+      .qr-card { padding: 24px; max-width: calc(100vw - 32px); }
+      .qr-title { font-size: 16px; }
+      .qr-code img, .qr-code canvas { max-width: min(320px, 80vw); }
+    }
+    @media (max-width: 375px) {
+      .share-widget { top: 8px; right: 16px; }
+      .share-btn { width: 32px; height: 32px; }
+      .share-btn svg { width: 14px; height: 14px; }
+      .qr-card { padding: 20px; }
+    }
+    @supports (padding-top: env(safe-area-inset-top)) {
+      .share-widget {
+        top: calc(12px + env(safe-area-inset-top));
+        right: calc(24px + env(safe-area-inset-right));
       }
     }
   </style>
@@ -1817,147 +1568,43 @@ class ResourceController {
     </div>
   </div>
 
+  <!-- 分享按钮组 -->
+  <div class="share-widget">
+    <button class="share-btn" id="copy-link-btn" title="复制链接">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+      </svg>
+    </button>
+    <button class="share-btn" id="show-qr-btn" title="显示二维码">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+      </svg>
+    </button>
+  </div>
+
+  <!-- 二维码弹出层 -->
+  <div id="qr-overlay" class="qr-overlay hidden">
+    <div class="qr-card">
+      <div class="qr-title">${resource.title}</div>
+      <div class="qr-subtitle">扫码访问学习资源</div>
+      <div class="qr-code" id="qr-code"></div>
+      <button class="qr-close-btn" id="qr-close-btn">关闭二维码</button>
+    </div>
+  </div>
+
   <!-- 登录弹窗 -->
   <div id="login-overlay" class="login-overlay hidden">
     <div class="login-card">
-      <div class="login-header">
-        <div class="login-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-          </svg>
-        </div>
-        <h2 class="login-title">登录后开始学习</h2>
-        <p class="login-subtitle">登录后可记录学习时长，查看学习进度</p>
-      </div>
-
-      <form id="login-form">
-        <div class="form-group">
-          <label class="form-label">手机号</label>
-          <div class="input-wrapper">
-            <input type="tel" id="phone-input" class="form-input" placeholder="请输入手机号" maxlength="11" autocomplete="tel">
-            <button type="button" id="send-code-btn" class="send-code-btn">发送验证码</button>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">验证码</label>
-          <input type="text" id="code-input" class="form-input" placeholder="请输入6位验证码" maxlength="6" autocomplete="one-time-code">
-        </div>
-
-        <div id="error-message" class="error-message"></div>
-
-        <button type="submit" id="login-btn" class="login-btn">登录</button>
-      </form>
-
-      <div class="divider">
-        <div class="divider-line"></div>
-        <span class="divider-text">或</span>
-        <div class="divider-line"></div>
-      </div>
-
-      <button type="button" id="guest-btn" class="guest-btn">游客模式浏览（不记录时长）</button>
+      <button type="button" id="close-login-btn" class="close-login-btn" title="关闭">&times;</button>
+      <iframe id="login-iframe" src="${frontendUrl}/login-embed" class="login-iframe"></iframe>
     </div>
   </div>
 
-  <!-- 验证码显示弹窗 -->
-  <div id="code-popup" class="code-popup">
-    <div class="code-popup-title">您的验证码</div>
-    <div id="code-display" class="code-popup-code">------</div>
-    <div class="code-popup-hint">验证码5分钟内有效</div>
-  </div>
-
-  <!-- 注册弹窗 -->
-  <div id="register-overlay" class="login-overlay hidden">
-    <div class="register-card">
-      <div class="register-header">
-        <h2 class="register-title">创建账号</h2>
-        <p class="register-subtitle">填写基本信息完成注册</p>
-      </div>
-
-      <div class="register-phone-display">
-        <span class="phone-number" id="register-phone">138****0000</span>
-        <button type="button" id="change-phone-btn" class="change-phone-btn">修改手机号</button>
-      </div>
-
-      <!-- 角色选择 -->
-      <div class="role-selector">
-        <div class="role-option" data-role="teacher" id="role-teacher">
-          <div class="role-option-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-              <path d="M2 17l10 5 10-5"></path>
-              <path d="M2 12l10 5 10-5"></path>
-            </svg>
-          </div>
-          <div class="role-option-label">我是教师</div>
-          <div class="role-option-desc">上传资源，创建课程</div>
-        </div>
-        <div class="role-option" data-role="student" id="role-student">
-          <div class="role-option-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-            </svg>
-          </div>
-          <div class="role-option-label">我是学生</div>
-          <div class="role-option-desc">学习资源，记录进度</div>
-        </div>
-      </div>
-
-      <!-- 注册表单 -->
-      <form id="register-form">
-        <div class="register-form-group">
-          <label class="form-label">真实姓名<span class="required">*</span></label>
-          <input type="text" id="real-name-input" class="form-input" placeholder="请输入您的真实姓名" autocomplete="name">
-        </div>
-
-        <!-- 教师字段 -->
-        <div id="teacher-fields" style="display: none;">
-          <div class="register-form-group">
-            <label class="form-label">单位/机构<span class="required">*</span></label>
-            <input type="text" id="organization-input" class="form-input" placeholder="请输入您的单位或机构名称" autocomplete="organization">
-          </div>
-          <div class="register-form-group">
-            <label class="form-label">职称</label>
-            <select id="teacher-title-input" class="form-input">
-              <option value="">请选择职称</option>
-              <option value="教授">教授</option>
-              <option value="副教授">副教授</option>
-              <option value="讲师">讲师</option>
-              <option value="助教">助教</option>
-              <option value="主治医师">主治医师</option>
-              <option value="副主任医师">副主任医师</option>
-              <option value="主任医师">主任医师</option>
-              <option value="其他">其他</option>
-            </select>
-          </div>
-          <div class="register-form-group">
-            <label class="form-label">专业领域</label>
-            <input type="text" id="teacher-field-input" class="form-input" placeholder="如：护理学、内科学等">
-          </div>
-        </div>
-
-        <!-- 学生字段 -->
-        <div id="student-fields" style="display: none;">
-          <div class="register-form-group">
-            <label class="form-label">学校<span class="required">*</span></label>
-            <input type="text" id="student-school-input" class="form-input" placeholder="请输入您的学校名称" autocomplete="organization">
-          </div>
-          <div class="register-form-group">
-            <label class="form-label">专业</label>
-            <input type="text" id="student-major-input" class="form-input" placeholder="请输入您的专业">
-          </div>
-        </div>
-
-        <div id="register-error-message" class="error-message"></div>
-
-        <button type="submit" id="register-btn" class="register-btn" disabled>完成注册</button>
-      </form>
-
-      <button type="button" id="back-to-login-btn" class="back-to-login-btn">返回登录</button>
-    </div>
-  </div>
-
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
   <script>
     (function() {
       // 配置
@@ -1974,8 +1621,6 @@ class ResourceController {
       var heartbeatTimer = null;
       var timerInterval = null;
       var isMinimized = false;
-      var countdownTimer = null;
-      var countdown = 0;
 
       // 暂停计时相关状态
       var isPaused = false;
@@ -1990,35 +1635,8 @@ class ResourceController {
       var timerDetails = document.getElementById('timer-details');
       var timerUserEl = document.getElementById('timer-user');
       var loginOverlay = document.getElementById('login-overlay');
-      var loginForm = document.getElementById('login-form');
-      var phoneInput = document.getElementById('phone-input');
-      var codeInput = document.getElementById('code-input');
-      var sendCodeBtn = document.getElementById('send-code-btn');
-      var loginBtn = document.getElementById('login-btn');
-      var guestBtn = document.getElementById('guest-btn');
-      var errorMessage = document.getElementById('error-message');
-      var codePopup = document.getElementById('code-popup');
-      var codeDisplay = document.getElementById('code-display');
+      var closeLoginBtn = document.getElementById('close-login-btn');
       var finishBtn = document.getElementById('timer-finish-btn');
-
-      // 注册相关DOM元素
-      var registerOverlay = document.getElementById('register-overlay');
-      var registerForm = document.getElementById('register-form');
-      var registerPhoneEl = document.getElementById('register-phone');
-      var changePhoneBtn = document.getElementById('change-phone-btn');
-      var roleTeacher = document.getElementById('role-teacher');
-      var roleStudent = document.getElementById('role-student');
-      var teacherFields = document.getElementById('teacher-fields');
-      var studentFields = document.getElementById('student-fields');
-      var registerBtn = document.getElementById('register-btn');
-      var backToLoginBtn = document.getElementById('back-to-login-btn');
-      var registerErrorMessage = document.getElementById('register-error-message');
-
-      // 注册流程状态
-      var pendingPhone = '';      // 待注册的手机号
-      var pendingCode = '';       // 待注册的验证码
-      var pendingRegisterToken = ''; // 注册令牌（替代验证码验证）
-      var selectedRole = '';      // 选择的角色
 
       var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
@@ -2086,309 +1704,44 @@ class ResourceController {
         console.log('计时已恢复');
       }
 
-      function showError(msg) {
-        errorMessage.textContent = msg;
-        errorMessage.classList.add('show');
-      }
+      // 监听来自登录iframe的消息
+      window.addEventListener('message', function(event) {
+        // 验证消息来源
+        if (event.origin !== '${frontendUrl}') return;
 
-      function hideError() {
-        errorMessage.classList.remove('show');
-      }
+        var data = event.data;
+        if (!data || !data.type) return;
 
-      function validatePhone(phone) {
-        return /^1[3-9]\\d{9}$/.test(phone);
-      }
-
-      // 显示注册表单
-      function showRegisterForm(phone, code, registerToken) {
-        pendingPhone = phone;
-        pendingCode = code;
-        pendingRegisterToken = registerToken || '';
-        selectedRole = '';
-
-        // 显示脱敏手机号
-        registerPhoneEl.textContent = maskPhone(phone);
-
-        // 重置表单
-        document.getElementById('real-name-input').value = '';
-        document.getElementById('organization-input').value = '';
-        document.getElementById('teacher-title-input').value = '';
-        document.getElementById('teacher-field-input').value = '';
-        document.getElementById('student-school-input').value = '';
-        document.getElementById('student-major-input').value = '';
-
-        // 重置角色选择
-        roleTeacher.classList.remove('selected');
-        roleStudent.classList.remove('selected');
-        teacherFields.style.display = 'none';
-        studentFields.style.display = 'none';
-        registerBtn.disabled = true;
-
-        // 切换弹窗
-        loginOverlay.classList.add('hidden');
-        registerOverlay.classList.remove('hidden');
-      }
-
-      // 隐藏注册表单，返回登录
-      function hideRegisterForm() {
-        registerOverlay.classList.add('hidden');
-        loginOverlay.classList.remove('hidden');
-        pendingPhone = '';
-        pendingCode = '';
-        pendingRegisterToken = '';
-        selectedRole = '';
-      }
-
-      // 角色选择处理
-      function selectRole(role) {
-        selectedRole = role;
-
-        // 更新UI
-        roleTeacher.classList.toggle('selected', role === 'teacher');
-        roleStudent.classList.toggle('selected', role === 'student');
-        teacherFields.style.display = role === 'teacher' ? 'block' : 'none';
-        studentFields.style.display = role === 'student' ? 'block' : 'none';
-
-        // 检查表单是否可提交
-        checkRegisterFormValid();
-      }
-
-      // 检查注册表单是否可提交
-      function checkRegisterFormValid() {
-        var realName = document.getElementById('real-name-input').value.trim();
-        var isValid = selectedRole !== '' && realName !== '';
-
-        if (selectedRole === 'teacher') {
-          var organization = document.getElementById('organization-input').value.trim();
-          isValid = isValid && organization !== '';
-        } else if (selectedRole === 'student') {
-          var school = document.getElementById('student-school-input').value.trim();
-          isValid = isValid && school !== '';
-        }
-
-        registerBtn.disabled = !isValid;
-      }
-
-      // 角色选择事件
-      roleTeacher.addEventListener('click', function() { selectRole('teacher'); });
-      roleStudent.addEventListener('click', function() { selectRole('student'); });
-
-      // 修改手机号
-      changePhoneBtn.addEventListener('click', hideRegisterForm);
-
-      // 表单输入监听
-      registerForm.addEventListener('input', checkRegisterFormValid);
-
-      // 注册表单提交
-      registerForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-
-        if (!selectedRole) {
-          showRegisterError('请选择角色');
-          return;
-        }
-
-        var realName = document.getElementById('real-name-input').value.trim();
-        if (!realName) {
-          showRegisterError('请输入真实姓名');
-          return;
-        }
-
-        var registerData = {
-          phone: pendingPhone,
-          code: pendingCode,
-          registerToken: pendingRegisterToken,  // 使用registerToken替代验证码验证
-          role: selectedRole,
-          real_name: realName,
-          nickname: realName // 默认昵称为真实姓名
-        };
-
-        // 根据角色添加字段
-        if (selectedRole === 'teacher') {
-          registerData.organization = document.getElementById('organization-input').value.trim();
-          registerData.teacher_title = document.getElementById('teacher-title-input').value;
-          registerData.teacher_field = document.getElementById('teacher-field-input').value.trim();
-        } else if (selectedRole === 'student') {
-          registerData.student_school = document.getElementById('student-school-input').value.trim();
-          registerData.student_major = document.getElementById('student-major-input').value.trim();
-        }
-
-        hideRegisterError();
-        registerBtn.disabled = true;
-        registerBtn.textContent = '注册中...';
-
-        fetch(API_BASE + '/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(registerData)
-        })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.success && data.data && data.data.token) {
-            // 注册成功，自动登录
-            token = data.data.token;
-            localStorage.setItem('auth_token', token);
-            localStorage.setItem('user_info', JSON.stringify(data.data.user || {}));
-            isLoggedIn = true;
-            registerOverlay.classList.add('hidden');
-
-            // 更新用户名显示
-            updateUserDisplay();
-
-            // 重置计时器状态
-            pausedAt = 0;
-            activeStartTime = Date.now();
-            isPaused = false;
-
-            // 开始浏览记录
-            startView().then(function() {
-              heartbeatTimer = setInterval(heartbeat, HEARTBEAT_INTERVAL);
-            });
-            loadTotalDuration();
-          } else {
-            showRegisterError(data.error?.message || '注册失败');
-            registerBtn.disabled = false;
-            registerBtn.textContent = '完成注册';
+        if (data.type === 'LOGIN_SUCCESS') {
+          // 登录成功
+          token = data.token;
+          if (data.userInfo) {
+            localStorage.setItem('user_info', JSON.stringify(data.userInfo));
           }
-        })
-        .catch(function(err) {
-          showRegisterError('网络错误，请重试');
-          registerBtn.disabled = false;
-          registerBtn.textContent = '完成注册';
-        });
+          isLoggedIn = true;
+          loginOverlay.classList.add('hidden');
+
+          // 更新用户名显示
+          updateUserDisplay();
+
+          // 重置计时器状态
+          pausedAt = 0;
+          activeStartTime = Date.now();
+          isPaused = false;
+
+          // 开始浏览记录
+          startView().then(function() {
+            heartbeatTimer = setInterval(heartbeat, HEARTBEAT_INTERVAL);
+          });
+          loadTotalDuration();
+        } else if (data.type === 'GUEST_MODE') {
+          // 游客模式
+          loginOverlay.classList.add('hidden');
+        }
       });
 
-      // 返回登录按钮
-      backToLoginBtn.addEventListener('click', hideRegisterForm);
-
-      function showRegisterError(msg) {
-        registerErrorMessage.textContent = msg;
-        registerErrorMessage.classList.add('show');
-      }
-
-      function hideRegisterError() {
-        registerErrorMessage.classList.remove('show');
-      }
-
-      function startCountdown() {
-        countdown = 60;
-        sendCodeBtn.disabled = true;
-        sendCodeBtn.textContent = countdown + '秒';
-        countdownTimer = setInterval(function() {
-          countdown--;
-          if (countdown <= 0) {
-            clearInterval(countdownTimer);
-            sendCodeBtn.disabled = false;
-            sendCodeBtn.textContent = '发送验证码';
-          } else {
-            sendCodeBtn.textContent = countdown + '秒';
-          }
-        }, 1000);
-      }
-
-      // 发送验证码
-      sendCodeBtn.addEventListener('click', function() {
-        var phone = phoneInput.value.trim();
-        if (!validatePhone(phone)) {
-          showError('请输入正确的手机号格式');
-          return;
-        }
-        hideError();
-        sendCodeBtn.disabled = true;
-
-        fetch(API_BASE + '/api/auth/send-code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: phone })
-        })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.success) {
-            startCountdown();
-            // 显示验证码弹窗（模拟短信）
-            if (data.data && data.data.code) {
-              codeDisplay.textContent = data.data.code;
-              codePopup.classList.add('show');
-              setTimeout(function() {
-                codePopup.classList.remove('show');
-              }, 5000);
-            }
-          } else {
-            showError(data.error?.message || '发送验证码失败');
-            sendCodeBtn.disabled = false;
-          }
-        })
-        .catch(function(err) {
-          showError('网络错误，请重试');
-          sendCodeBtn.disabled = false;
-        });
-      });
-
-      // 登录表单提交
-      loginForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        var phone = phoneInput.value.trim();
-        var code = codeInput.value.trim();
-
-        if (!validatePhone(phone)) {
-          showError('请输入正确的手机号格式');
-          return;
-        }
-        if (!/^\\d{6}$/.test(code)) {
-          showError('请输入6位数字验证码');
-          return;
-        }
-
-        hideError();
-        loginBtn.disabled = true;
-        loginBtn.textContent = '登录中...';
-
-        fetch(API_BASE + '/api/auth/login-with-code', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: phone, code: code })
-        })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.success && data.data && data.data.token) {
-            // 登录成功
-            token = data.data.token;
-            localStorage.setItem('auth_token', token);
-            localStorage.setItem('user_info', JSON.stringify(data.data.user || {}));
-            isLoggedIn = true;
-            loginOverlay.classList.add('hidden');
-
-            // 更新用户名显示
-            updateUserDisplay();
-
-            // 重置计时器状态
-            pausedAt = 0;
-            activeStartTime = Date.now();
-            isPaused = false;
-
-            // 开始浏览记录
-            startView().then(function() {
-              heartbeatTimer = setInterval(heartbeat, HEARTBEAT_INTERVAL);
-            });
-            loadTotalDuration();
-          } else if (data.data && data.data.isNewUser) {
-            // 新用户，切换到注册流程（带上registerToken）
-            showRegisterForm(phone, code, data.data.registerToken);
-          } else {
-            showError(data.error?.message || '登录失败');
-            loginBtn.disabled = false;
-            loginBtn.textContent = '登录';
-          }
-        })
-        .catch(function(err) {
-          showError('网络错误，请重试');
-          loginBtn.disabled = false;
-          loginBtn.textContent = '登录';
-        });
-      });
-
-      // 游客模式
-      guestBtn.addEventListener('click', function() {
+      // 关闭登录弹窗按钮（游客模式）
+      closeLoginBtn.addEventListener('click', function() {
         loginOverlay.classList.add('hidden');
       });
 
@@ -2707,6 +2060,65 @@ class ResourceController {
         // 窗口焦点变化（切换到其他程序）
         window.addEventListener('blur', pauseTimer);
         window.addEventListener('focus', resumeTimer);
+
+        // 分享功能初始化
+        initShare();
+      }
+
+      // 分享功能
+      function initShare() {
+        var copyBtn = document.getElementById('copy-link-btn');
+        var showQrBtn = document.getElementById('show-qr-btn');
+        var qrOverlay = document.getElementById('qr-overlay');
+        var qrCloseBtn = document.getElementById('qr-close-btn');
+        var qrCodeContainer = document.getElementById('qr-code');
+        var currentUrl = window.location.href;
+
+        // 复制链接
+        copyBtn.addEventListener('click', function() {
+          navigator.clipboard.writeText(currentUrl).then(function() {
+            copyBtn.classList.add('copied');
+            copyBtn.title = '已复制';
+            setTimeout(function() {
+              copyBtn.classList.remove('copied');
+              copyBtn.title = '复制链接';
+            }, 2000);
+          }).catch(function() {
+            var input = document.createElement('input');
+            input.value = currentUrl;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+            copyBtn.classList.add('copied');
+            copyBtn.title = '已复制';
+            setTimeout(function() {
+              copyBtn.classList.remove('copied');
+              copyBtn.title = '复制链接';
+            }, 2000);
+          });
+        });
+
+        // 生成二维码
+        var qrGenerated = false;
+        showQrBtn.addEventListener('click', function() {
+          if (!qrGenerated && typeof qrcode !== 'undefined') {
+            var qr = qrcode(0, 'M');
+            qr.addData(currentUrl);
+            qr.make();
+            qrCodeContainer.innerHTML = qr.createImgTag(12, 20);
+            qrGenerated = true;
+          }
+          qrOverlay.classList.remove('hidden');
+        });
+
+        // 关闭二维码
+        qrCloseBtn.addEventListener('click', function() {
+          qrOverlay.classList.add('hidden');
+        });
+        qrOverlay.addEventListener('click', function(e) {
+          if (e.target === qrOverlay) qrOverlay.classList.add('hidden');
+        });
       }
 
       init();
