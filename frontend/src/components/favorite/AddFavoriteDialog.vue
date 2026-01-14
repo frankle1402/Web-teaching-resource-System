@@ -26,7 +26,7 @@
           <!-- 视频预览 -->
           <div v-if="bilibiliMeta" class="meta-preview">
             <div class="preview-thumbnail">
-              <img :src="bilibiliMeta.thumbnailUrl" alt="封面" />
+              <img :src="getBilibiliThumbnail(bilibiliMeta.thumbnailUrl)" alt="封面" />
               <span class="duration">{{ formatDuration(bilibiliMeta.videoDuration) }}</span>
             </div>
             <div class="preview-info">
@@ -316,6 +316,7 @@ const clearImagePreview = () => {
 // 格式化
 const formatDuration = (seconds) => favoriteAPI.formatDuration(seconds)
 const formatPlayCount = (count) => favoriteAPI.formatPlayCount(count)
+const getBilibiliThumbnail = (url) => favoriteAPI.getBilibiliImageUrl(url)
 
 // 提交
 const handleSubmit = async () => {
