@@ -244,7 +244,7 @@
         <!-- 公众号文章预览 -->
         <div v-else-if="previewItem?.type === 'wechat_article'" class="article-preview">
           <p><strong>公众号：</strong>{{ previewItem.article_author }}</p>
-          <p><strong>发布时间：</strong>{{ previewItem.publish_time }}</p>
+          <p><strong>发布时间：</strong>{{ formatPublishTime(previewItem.publish_time) }}</p>
           <p>{{ previewItem.description }}</p>
           <el-button type="primary" @click="openLink(previewItem.source_url)">
             <el-icon><Link /></el-icon>
@@ -547,6 +547,25 @@ const formatDate = (dateStr) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+// 格式化发布时间（处理时间戳）
+const formatPublishTime = (time) => {
+  if (!time) return '-'
+  // 如果是纯数字（时间戳），转换为日期
+  const timestamp = typeof time === 'string' ? parseInt(time) : time
+  if (!isNaN(timestamp) && timestamp > 1000000000) {
+    const date = new Date(timestamp * 1000)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+  return time
 }
 
 const getTypeName = (type) => {
