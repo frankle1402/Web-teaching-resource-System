@@ -1861,9 +1861,9 @@ class ResourceController {
       function loadTotalDuration() {
         if (!isLoggedIn) return Promise.resolve();
 
-        return apiRequest(API_BASE + '/api/views/stats').then(function(result) {
+        return apiRequest(API_BASE + '/api/views/resource/' + RESOURCE_ID + '/duration').then(function(result) {
           if (result && result.success && result.data) {
-            totalSeconds = result.data.stats && result.data.stats.totalDuration || 0;
+            totalSeconds = result.data.totalDuration || 0;
             updateDisplay();
           }
         });

@@ -692,7 +692,7 @@ defineExpose({
 
 .favorite-list {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .select-all-bar {

@@ -28,4 +28,7 @@ router.get('/stats', viewController.getViewStats);
 // 教师/管理员查看指定资源的浏览记录
 router.get('/resource/:resourceId', requireRole('teacher', 'admin'), viewController.getResourceViews);
 
+// 获取当前用户在指定资源的累计学习时长
+router.get('/resource/:resourceId/duration', viewController.getResourceDuration);
+
 module.exports = router;

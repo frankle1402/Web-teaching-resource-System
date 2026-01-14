@@ -500,6 +500,37 @@ class ViewController {
   }
 
   /**
+   * 获取当前用户在指定资源的累计学习时长
+   * GET /api/views/resource/:resourceId/duration
+   */
+  async getResourceDuration(req, res) {
+    try {
+      const { resourceId } = req.params;
+      const userId = req.user.id;
+      const db = await getDB();
+
+      const result = db.prepare(`
+        SELECT COALESCE(SUM(duration), 0) as totalDuration
+        FROM resource_views
+        WHERE user_id = ? AND resource_id = ?
+      `).get([userId, resourceId]);
+
+      res.json({
+        success: true,
+        data: {
+          totalDuration: result.totalDuration
+        }
+      });
+    } catch (error) {
+      console.error('获取资源学习时长错误:', error);
+      res.status(500).json({
+        success: false,
+        error: { code: 'GET_RESOURCE_DURATION_ERROR', message: '获取学习时长失败' }
+      });
+    }
+  }
+
+  /**
    * 获取浏览统计数据（用于Dashboard）
    * GET /api/views/stats
    */
