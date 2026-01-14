@@ -72,10 +72,6 @@
           {{ formatDate(favorite.created_at) }}
         </span>
         <div class="card-actions" @click.stop>
-          <el-button size="small" type="primary" text @click="$emit('insert', favorite)">
-            <el-icon><Select /></el-icon>
-            插入
-          </el-button>
           <el-dropdown trigger="click" @command="handleCommand">
             <el-button size="small" text>
               <el-icon><MoreFilled /></el-icon>
@@ -107,7 +103,7 @@
 import { ref, computed } from 'vue'
 import {
   VideoPlay, ChatLineSquare, Picture, User, View,
-  Select, MoreFilled, Link, FolderAdd, Delete, Edit, Document
+  MoreFilled, Link, FolderAdd, Delete, Edit, Document
 } from '@element-plus/icons-vue'
 import { favoriteAPI } from '@/api/favorite'
 
@@ -122,7 +118,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select', 'click', 'delete', 'move', 'insert', 'edit'])
+const emit = defineEmits(['select', 'click', 'delete', 'move', 'edit'])
 
 // 图片加载失败标记
 const imageLoadFailed = ref(false)
@@ -144,6 +140,9 @@ const truncatedNotes = computed(() => {
 const thumbnailSrc = computed(() => {
   // 如果图片加载失败，返回空
   if (imageLoadFailed.value) return ''
+
+  // 微信公众号文章不显示图片（防盗链），改用图标
+  if (props.favorite.type === 'wechat_article') return ''
 
   // 对于图片类型，优先使用local_path
   if (props.favorite.type === 'image' && props.favorite.local_path) {

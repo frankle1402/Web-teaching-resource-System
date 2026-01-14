@@ -87,7 +87,6 @@
           @click="handlePreview"
           @delete="handleDelete"
           @move="handleSingleMove"
-          @insert="handleInsert"
           @edit="handleEdit"
         />
       </div>
@@ -166,9 +165,6 @@
                     </el-dropdown-item>
                     <el-dropdown-item command="preview">
                       <el-icon><View /></el-icon> 查看
-                    </el-dropdown-item>
-                    <el-dropdown-item command="insert">
-                      <el-icon><Select /></el-icon> 插入到资源
                     </el-dropdown-item>
                     <el-dropdown-item command="move">
                       <el-icon><FolderAdd /></el-icon> 移动
@@ -281,7 +277,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, Plus, Grid, List, FolderAdd, Delete, View, Edit,
   ArrowDown, Folder, FolderOpened, Picture, VideoPlay,
-  ChatLineSquare, Select, Link, Document
+  ChatLineSquare, Link, Document
 } from '@element-plus/icons-vue'
 import { favoriteAPI } from '@/api/favorite'
 import FavoriteCard from './FavoriteCard.vue'
@@ -307,7 +303,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['folder-updated', 'insert-favorite'])
+const emit = defineEmits(['folder-updated'])
 
 const loading = ref(false)
 const viewMode = ref('card')
@@ -502,11 +498,6 @@ const handlePreview = (favorite) => {
   previewDialogVisible.value = true
 }
 
-// 插入到资源
-const handleInsert = (favorite) => {
-  emit('insert-favorite', favorite)
-}
-
 // 添加成功
 const handleAddSuccess = () => {
   loadFavorites()
@@ -521,9 +512,6 @@ const handleTableCommand = (command, row) => {
       break
     case 'preview':
       handlePreview(row)
-      break
-    case 'insert':
-      handleInsert(row)
       break
     case 'move':
       handleSingleMove(row)
@@ -584,6 +572,8 @@ const getImageUrl = (localPath) => {
 
 // 获取缩略图URL（处理不同类型的收藏）
 const getThumbnailUrl = (favorite) => {
+  // 微信公众号文章不显示图片（防盗链），改用图标
+  if (favorite.type === 'wechat_article') return ''
   // 对于图片类型，优先使用local_path
   if (favorite.type === 'image' && favorite.local_path) {
     return favoriteAPI.getImageUrl(favorite.local_path)

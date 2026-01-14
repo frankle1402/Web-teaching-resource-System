@@ -156,7 +156,7 @@ import {
 } from '@element-plus/icons-vue'
 import { favoriteAPI } from '@/api/favorite'
 
-const emit = defineEmits(['folder-selected', 'type-selected', 'folder-updated'])
+const emit = defineEmits(['folder-selected', 'type-selected', 'folder-updated', 'tree-loaded'])
 
 const loading = ref(false)
 const dialogVisible = ref(false)
@@ -187,6 +187,8 @@ const loadFolders = async () => {
       unclassifiedCount.value = response.unclassifiedCount || 0
       totalCount.value = response.totalCount || 0
       typeCounts.value = response.typeCounts || {}
+      // 通知父组件文件夹树已加载
+      emit('tree-loaded', folderTree.value)
     }
   } catch (error) {
     console.error('加载收藏文件夹列表失败:', error)

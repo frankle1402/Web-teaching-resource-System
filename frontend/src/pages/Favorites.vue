@@ -8,6 +8,7 @@
           @folder-selected="handleFolderSelected"
           @type-selected="handleTypeSelected"
           @folder-updated="handleFolderUpdated"
+          @tree-loaded="handleTreeLoaded"
         />
       </div>
 
@@ -20,7 +21,6 @@
           :filter-type="currentFilterType"
           :folder-tree="folderTree"
           @folder-updated="handleFolderUpdated"
-          @insert-favorite="handleInsertFavorite"
         />
       </div>
     </div>
@@ -29,7 +29,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
 import FavoriteFolderTreePanel from '@/components/favorite/FavoriteFolderTreePanel.vue'
 import FavoriteGridPanel from '@/components/favorite/FavoriteGridPanel.vue'
 
@@ -52,6 +51,11 @@ const handleTypeSelected = (type) => {
   currentFilterType.value = type
 }
 
+// 文件夹树加载完成
+const handleTreeLoaded = (tree) => {
+  folderTree.value = tree
+}
+
 // 文件夹更新后刷新
 const handleFolderUpdated = async () => {
   // 刷新文件夹树
@@ -62,12 +66,6 @@ const handleFolderUpdated = async () => {
   if (gridPanelRef.value) {
     await gridPanelRef.value.loadFavorites()
   }
-}
-
-// 插入收藏到资源（预留接口，Phase 5实现）
-const handleInsertFavorite = (favorite) => {
-  ElMessage.info(`功能开发中：插入 ${favorite.title}`)
-  // TODO: 实现插入到大纲编辑器或HTML编辑器的逻辑
 }
 </script>
 
