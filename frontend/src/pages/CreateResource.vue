@@ -280,7 +280,7 @@
         </div>
       </template>
 
-      <HTMLEditor v-model="form.contentHtml" />
+      <WysiwygEditor v-model="form.contentHtml" />
 
       <div class="step-actions">
         <el-button @click="prevStep">上一步</el-button>
@@ -390,6 +390,7 @@ import { aiAPI } from '@/api/ai'
 import { uploadAPI } from '@/api/upload'
 import TipTapEditor from '@/components/editor/TipTapEditor.vue'
 import HTMLEditor from '@/components/editor/HTMLEditor.vue'
+import WysiwygEditor from '@/components/editor/WysiwygEditor.vue'
 import OutlineEditor from '@/components/OutlineEditor.vue'
 
 const router = useRouter()
