@@ -12,6 +12,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: 'aigc.osve.cn',  // 绑定到域名，本地需配置 hosts 文件
     strictPort: true,  // 强制使用指定端口，如被占用则报错
     proxy: {
       '/api': {

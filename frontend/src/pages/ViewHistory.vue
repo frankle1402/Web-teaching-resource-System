@@ -157,6 +157,7 @@ import {
   User,
   ArrowRight
 } from '@element-plus/icons-vue'
+import { getApiBaseUrl } from '@/utils/url'
 
 const router = useRouter()
 
@@ -391,7 +392,7 @@ function handlePageChange() {
 function handleViewResource(item) {
   if (item.resource?.uuid) {
     // 使用后端地址构建公开资源链接
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    const baseUrl = getApiBaseUrl()
     window.open(`${baseUrl}/r/${item.resource.uuid}`, '_blank')
   }
 }

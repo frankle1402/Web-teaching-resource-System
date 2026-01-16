@@ -232,7 +232,6 @@ import {
   School
 } from '@element-plus/icons-vue'
 import { authAPI } from '@/api/auth'
-import { userAPI } from '@/api/user'
 
 const route = useRoute()
 const router = useRouter()
@@ -323,18 +322,8 @@ onMounted(async () => {
     return
   }
 
-  // 尝试获取选项数据
-  try {
-    const options = await userAPI.getOptions()
-    if (options.teacherTitles) {
-      teacherTitles.value = options.teacherTitles
-    }
-    if (options.studentLevels) {
-      studentLevels.value = options.studentLevels
-    }
-  } catch (error) {
-    console.log('使用默认选项数据')
-  }
+  // 注意：不调用 userAPI.getOptions()，因为该接口需要认证
+  // 新用户注册时还没有 token，直接使用默认选项数据即可
 })
 
 /**

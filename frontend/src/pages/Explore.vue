@@ -307,6 +307,7 @@ import { publicAPI } from '@/api/public'
 import { resourceAPI } from '@/api/resource'
 import { favoriteAPI } from '@/api/favorite'
 import { useUserStore } from '@/store/modules/user'
+import { getApiBaseUrl } from '@/utils/url'
 import LoginDialog from '@/components/common/LoginDialog.vue'
 
 const router = useRouter()
@@ -514,7 +515,7 @@ const confirmFavorite = async () => {
   favoriteLoading.value = true
   try {
     const resource = currentFavoriteResource.value
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    const baseUrl = getApiBaseUrl()
 
     const data = await favoriteAPI.create({
       type: 'resource',
@@ -594,8 +595,8 @@ const handleSizeChange = () => {
 
 // 查看资源
 const handleViewResource = (resource) => {
-  // 使用后端地址构建公开资源链接（端口8080）
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+  // 使用后端地址构建公开资源链接
+  const baseUrl = getApiBaseUrl()
   const publicUrl = `${baseUrl}/r/${resource.uuid}`
   window.open(publicUrl, '_blank')
 }

@@ -262,6 +262,7 @@ import {
   Bottom,
   Edit
 } from '@element-plus/icons-vue'
+import { getApiBaseUrl } from '@/utils/url'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -508,7 +509,7 @@ async function loadDashboardData() {
  */
 function handleViewResource(resource) {
   if (resource?.uuid) {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    const baseUrl = getApiBaseUrl()
     window.open(`${baseUrl}/r/${resource.uuid}`, '_blank')
   }
 }
