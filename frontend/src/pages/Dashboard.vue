@@ -5,7 +5,7 @@
       <div class="aside-header">
         <div class="logo">
           <el-icon :size="32"><Reading /></el-icon>
-          <span class="logo-text">医教智创云平台</span>
+          <span class="logo-text">医教智创云平台<span class="beta-tag">Beta</span></span>
         </div>
       </div>
 
@@ -269,6 +269,18 @@ const handleGoToExplore = () => {
 
 .logo-text {
   font-size: 18px;
+}
+
+.beta-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  border-radius: 4px;
+  vertical-align: middle;
 }
 
 .aside-menu {

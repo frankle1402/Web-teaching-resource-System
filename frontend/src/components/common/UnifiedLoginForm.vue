@@ -1,7 +1,7 @@
 <template>
   <div class="unified-login-form" :class="{ 'compact-mode': compact }">
     <div v-if="showHeader" class="login-header">
-      <h3 class="login-title">{{ title }}</h3>
+      <h3 class="login-title">{{ title }}<span class="beta-tag">Beta</span></h3>
       <p v-if="subtitle" class="login-subtitle">{{ subtitle }}</p>
     </div>
 
@@ -289,6 +289,18 @@ export default {
   font-weight: 600;
   color: #1f2937;
   margin: 0 0 0.5rem 0;
+}
+
+.beta-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  border-radius: 4px;
+  vertical-align: middle;
 }
 
 .login-subtitle {

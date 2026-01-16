@@ -2,7 +2,7 @@
   <nav class="navbar">
     <div class="container">
       <div class="nav-brand">
-        <h1>医教智创</h1>
+        <h1>医教智创<span class="beta-tag">Beta</span></h1>
         <span class="tagline">智能医学教育平台</span>
       </div>
       <ul class="nav-menu">
@@ -91,6 +91,18 @@ export default {
   font-size: 1.5rem;
   color: #2563eb;
   margin: 0 0 0.25rem 0;
+}
+
+.beta-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  border-radius: 4px;
+  vertical-align: middle;
 }
 
 .nav-brand .tagline {

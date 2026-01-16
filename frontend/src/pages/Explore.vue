@@ -5,7 +5,7 @@
       <div class="nav-container">
         <div class="nav-logo" @click="$router.push('/login')">
           <el-icon><Document /></el-icon>
-          <span>医教智创云平台</span>
+          <span>医教智创云平台<span class="beta-tag">Beta</span></span>
         </div>
         <div class="nav-actions">
           <el-button v-if="!userStore.isLoggedIn" type="primary" @click="goToLogin">
@@ -690,6 +690,18 @@ onMounted(() => {
 .nav-logo .el-icon {
   font-size: 24px;
   color: #3b82f6;
+}
+
+.beta-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  border-radius: 4px;
+  vertical-align: middle;
 }
 
 /* Hero区域 */
